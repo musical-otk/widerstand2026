@@ -15,7 +15,7 @@
     --border:#DDD4C8;--text:#2C2018;--text1:#2C2018;--text2:#6B5547;--text3:#A08878;
     --accent:#9B7B5A;--accent2:#7A5E40;--accent-light:rgba(155,123,90,0.10);
     --danger:#cc4444;--success:#3a8a52;--star:#C8902A;
-    --seat1:#EBD9C4;--seat2:#CEB090;--seat3:#A88660;--seat4:#7E5F3E;--seat5:#4A3220;
+    --seat1:#D4B896;--seat2:#B8906A;--seat3:#9A7048;--seat4:#74512E;--seat5:#4A3220;
     --shadow:0 2px 14px rgba(44,32,24,0.08);--radius:12px;--tab-h:64px;
   }
   [data-theme="dark"]{
@@ -267,6 +267,18 @@
   .badge-done{background:var(--accent-light);color:var(--accent);}
   .badge-booked{background:#e8f5e9;color:var(--success);}
   [data-theme="dark"] .badge-booked{background:#1a3a2a;color:var(--success);}
+
+  /* PHOTO */
+  .photo-grid{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+  .photo-thumb{width:76px;height:76px;object-fit:cover;border-radius:8px;cursor:pointer;border:1.5px solid var(--border);}
+  .photo-thumb-wrap{position:relative;display:inline-block;}
+  .photo-del-btn{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:#fff;border:none;cursor:pointer;font-size:11px;line-height:20px;text-align:center;padding:0;}
+  /* PHOTO VIEWER */
+  #photo-viewer{position:fixed;inset:0;z-index:600;background:#000;display:none;flex-direction:column;align-items:center;justify-content:center;overflow:auto;}
+  #photo-viewer.open{display:flex;}
+  #photo-viewer-img{max-width:100%;max-height:100vh;object-fit:contain;cursor:zoom-in;transition:none;}
+  #photo-viewer-img.zoomed{width:100vw;max-width:none;max-height:none;height:auto;cursor:zoom-out;}
+  #photo-viewer-close{position:fixed;top:16px;right:16px;z-index:601;background:rgba(0,0,0,0.5);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 </style>
 </head>
 <body>
@@ -470,8 +482,8 @@
   <div class="card">
     <div class="card-title">💾 데이터 백업/복원</div>
     <div style="display:flex;gap:10px;">
-      <button class="btn btn-outline" style="flex:1;" onclick="exportData()">JSON 내보내기</button>
-      <button class="btn btn-outline" style="flex:1;" onclick="document.getElementById('import-file').click()">JSON 가져오기</button>
+      <button class="btn btn-outline btn-sm" style="flex:1;" onclick="openPanel('overlay-export')">JSON 내보내기</button>
+      <button class="btn btn-outline btn-sm" style="flex:1;" onclick="document.getElementById('import-file').click()">JSON 가져오기</button>
     </div>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
   </div>
@@ -627,10 +639,6 @@
       <label class="form-label">티켓 가격 (원)</label>
       <input type="number" class="form-control" id="rec-price" placeholder="예: 55000">
     </div>
-    <div class="form-group">
-      <label class="form-label">한줄 코멘트</label>
-      <input type="text" class="form-control" id="rec-comment" placeholder="메모">
-    </div>
     <!-- 도장판 연동 -->
     <div class="form-group" id="rec-stamp-group">
       <label class="form-label">아이드 도서카드 연동</label>
@@ -654,6 +662,18 @@
           </label>
         </div>
       </div>
+    </div>
+    <!-- 한줄 코멘트 (도장판 아래로 이동) -->
+    <div class="form-group">
+      <label class="form-label">한줄 코멘트</label>
+      <input type="text" class="form-control" id="rec-comment" placeholder="메모">
+    </div>
+    <!-- 사진 -->
+    <div class="form-group">
+      <label class="form-label">사진 <span style="color:var(--text3);font-weight:400;">(최대 5장)</span></label>
+      <input type="file" id="rec-photo-input" accept="image/*" multiple style="display:none" onchange="onPhotoInput(event)">
+      <div class="photo-grid" id="rec-photo-preview"></div>
+      <button type="button" class="btn btn-outline btn-sm" id="rec-photo-add-btn" style="margin-top:6px;" onclick="document.getElementById('rec-photo-input').click()">📷 사진 추가</button>
     </div>
     <!-- 별점/메모 -->
     <div class="form-group">
@@ -888,11 +908,221 @@
   </div>
 </div>
 
+<!-- ===== PHOTO VIEWER ===== -->
+<div id="photo-viewer">
+  <button id="photo-viewer-close" onclick="closePhotoViewer()">✕</button>
+  <img id="photo-viewer-img" onclick="togglePhotoZoom()" alt="사진">
+</div>
+
+<!-- ===== EXPORT OPTIONS PANEL ===== -->
+<div class="overlay" id="overlay-export">
+  <div class="panel">
+    <div class="panel-handle"></div>
+    <div class="panel-title">내보내기</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <button class="btn btn-primary" style="padding:16px;line-height:1.6;" onclick="doExport(false)">
+        📄 텍스트만<br>
+        <span style="font-size:12px;font-weight:400;opacity:0.85;">기록·스케줄·쿠폰·도장판</span>
+      </button>
+      <button class="btn btn-outline" style="padding:16px;line-height:1.6;" onclick="doExport(true)">
+        🖼 사진 포함<br>
+        <span style="font-size:12px;font-weight:400;color:var(--text3);">파일이 커질 수 있습니다</span>
+      </button>
+    </div>
+    <button class="btn btn-outline" style="width:100%;margin-top:12px;" onclick="closePanel('overlay-export')">취소</button>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // CONFIG
 // ============================================================
 const APP_PREFIX = 'wider_';
+
+// ============================================================
+// PHOTO — IndexedDB
+// ============================================================
+let _photoDB = null;
+function getPhotoDB() {
+  if (_photoDB) return Promise.resolve(_photoDB);
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('wider_photos', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      const st = db.createObjectStore('photos', { keyPath: 'id' });
+      st.createIndex('recordId', 'recordId');
+    };
+    req.onsuccess = e => { _photoDB = e.target.result; res(_photoDB); };
+    req.onerror   = e => rej(e);
+  });
+}
+async function dbSavePhoto(recordId, id, dataUrl) {
+  const db = await getPhotoDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('photos', 'readwrite');
+    tx.objectStore('photos').put({ id, recordId, dataUrl });
+    tx.oncomplete = res; tx.onerror = rej;
+  });
+}
+async function dbGetPhotos(recordId) {
+  const db = await getPhotoDB();
+  return new Promise((res, rej) => {
+    const tx  = db.transaction('photos', 'readonly');
+    const req = tx.objectStore('photos').index('recordId').getAll(recordId);
+    req.onsuccess = e => res(e.target.result || []);
+    req.onerror   = rej;
+  });
+}
+async function dbDeletePhoto(id) {
+  const db = await getPhotoDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('photos', 'readwrite');
+    tx.objectStore('photos').delete(id);
+    tx.oncomplete = res; tx.onerror = rej;
+  });
+}
+async function dbDeleteRecordPhotos(recordId) {
+  const db = await getPhotoDB();
+  return new Promise((res, rej) => {
+    const tx  = db.transaction('photos', 'readwrite');
+    const idx = tx.objectStore('photos').index('recordId');
+    idx.getAllKeys(recordId).onsuccess = e => {
+      e.target.result.forEach(k => tx.objectStore('photos').delete(k));
+    };
+    tx.oncomplete = res; tx.onerror = rej;
+  });
+}
+async function dbGetAllPhotos() {
+  const db = await getPhotoDB();
+  return new Promise((res, rej) => {
+    const req = db.transaction('photos', 'readonly').objectStore('photos').getAll();
+    req.onsuccess = e => res(e.target.result || []);
+    req.onerror   = rej;
+  });
+}
+async function dbSaveAllPhotos(photos) {
+  const db = await getPhotoDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('photos', 'readwrite');
+    photos.forEach(p => tx.objectStore('photos').put(p));
+    tx.oncomplete = res; tx.onerror = rej;
+  });
+}
+
+// 이미지 압축 (최대 1080px, JPEG 0.82)
+function compressImage(file) {
+  return new Promise(resolve => {
+    const canvas = document.createElement('canvas');
+    const img    = new Image();
+    const url    = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const MAX = 1080;
+      let w = img.width, h = img.height;
+      if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+      else if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+}
+
+// 폼 사진 상태
+let pendingPhotos = [];       // { id, dataUrl, isNew }
+let pendingDelPhotos = [];    // 삭제할 photo ids
+
+async function setupPhotoForm(recordId) {
+  pendingPhotos = []; pendingDelPhotos = [];
+  if (recordId) {
+    const existing = await dbGetPhotos(recordId);
+    existing.forEach(p => pendingPhotos.push({ id: p.id, dataUrl: p.dataUrl, isNew: false }));
+  }
+  renderPhotoPreviews();
+}
+function renderPhotoPreviews() {
+  const preview = document.getElementById('rec-photo-preview');
+  const addBtn  = document.getElementById('rec-photo-add-btn');
+  if (!preview) return;
+  preview.innerHTML = pendingPhotos.map(p =>
+    `<div class="photo-thumb-wrap">
+      <img class="photo-thumb" src="${p.dataUrl}" onclick="openPhotoViewer('${p.dataUrl}')">
+      <button class="photo-del-btn" onclick="removePendingPhoto('${p.id}')">✕</button>
+    </div>`
+  ).join('');
+  if (addBtn) addBtn.style.display = pendingPhotos.length >= 5 ? 'none' : '';
+}
+async function onPhotoInput(e) {
+  const files = Array.from(e.target.files);
+  for (const file of files) {
+    if (pendingPhotos.length >= 5) break;
+    const dataUrl = await compressImage(file);
+    if (dataUrl) pendingPhotos.push({ id: uuid(), dataUrl, isNew: true });
+  }
+  e.target.value = '';
+  renderPhotoPreviews();
+}
+function removePendingPhoto(id) {
+  const idx = pendingPhotos.findIndex(p => p.id === id);
+  if (idx === -1) return;
+  const p = pendingPhotos[idx];
+  if (!p.isNew) pendingDelPhotos.push(id);
+  pendingPhotos.splice(idx, 1);
+  renderPhotoPreviews();
+}
+async function commitPhotos(recordId) {
+  await Promise.all(pendingDelPhotos.map(id => dbDeletePhoto(id)));
+  await Promise.all(pendingPhotos.filter(p => p.isNew).map(p => dbSavePhoto(recordId, p.id, p.dataUrl)));
+  pendingPhotos = []; pendingDelPhotos = [];
+}
+
+// 사진 전체화면 뷰어
+let _photoViewerOpen = false;
+function openPhotoViewer(src) {
+  const v = document.getElementById('photo-viewer');
+  const i = document.getElementById('photo-viewer-img');
+  if (!v || !i) return;
+  i.src = src; i.className = '';
+  v.classList.add('open');
+  _photoViewerOpen = true;
+  history.pushState({ photoViewer: true }, '');
+}
+function closePhotoViewer() {
+  const v = document.getElementById('photo-viewer');
+  if (!v) return;
+  v.classList.remove('open');
+  _photoViewerOpen = false;
+  if (history.state?.photoViewer) history.back();
+}
+function togglePhotoZoom() {
+  const i = document.getElementById('photo-viewer-img');
+  if (!i) return;
+  i.classList.toggle('zoomed');
+}
+window.addEventListener('popstate', () => {
+  if (_photoViewerOpen) {
+    const v = document.getElementById('photo-viewer');
+    if (v) v.classList.remove('open');
+    _photoViewerOpen = false;
+  }
+});
+
+// 내보내기 (텍스트만 / 사진 포함)
+async function doExport(includePhotos) {
+  const data = {
+    records: getRecords(), schedule: getSchedule(), events: getEvents(),
+    stampBoards: getStampBoards(), coupons: getCoupons(), settings: getSettings()
+  };
+  if (includePhotos) data.photos = await dbGetAllPhotos();
+  const a  = document.createElement('a');
+  const fn = `widerstand_backup_${localDate()}${includePhotos ? '_photos' : ''}.json`;
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+  a.download = fn; a.click();
+  closePanel('overlay-export');
+  showToast('백업 파일이 다운로드됐습니다');
+}
 
 // ============================================================
 // DB HELPER
@@ -1148,6 +1378,13 @@ document.querySelectorAll('.overlay').forEach(ov => {
   ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('open'); });
 });
 
+// date input 클릭 시 달력 피커 명시적 오픈 (Safari 대응)
+document.addEventListener('click', e => {
+  if (e.target.matches('input[type="date"]')) {
+    try { e.target.showPicker(); } catch {}
+  }
+});
+
 let _toastTimer;
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -1359,6 +1596,7 @@ function openAddRecord(date) {
   document.getElementById('rec-stamp-board').value = '';
   onRecStampBoardChange();
   resetStars();
+  setupPhotoForm(null);
   if (date) autoFillCasting();
   openPanel('overlay-record');
 }
@@ -1396,6 +1634,7 @@ function editRecord(id) {
     if (qEl) { qEl.checked = true; updateRecQtyLabel(); }
   }
   setStar(r.rating || 0);
+  setupPhotoForm(id);
   openPanel('overlay-record');
 }
 
@@ -1510,6 +1749,7 @@ function saveRecord() {
     }
   }
   saveRecords(records);
+  commitPhotos(record.id);
   closePanel('overlay-record');
   refreshCurrentPage();
 }
@@ -1575,8 +1815,21 @@ function openDetail(id) {
   }
 
   if (r.memo) html += `<div class="detail-field"><div class="detail-field-label">감상 메모</div><div class="detail-field-value" style="font-size:14px;line-height:1.6;white-space:pre-wrap;">${r.memo}</div></div>`;
+  // 사진 자리 placeholder
+  html += `<div id="detail-photo-area"></div>`;
   document.getElementById('detail-content').innerHTML = html;
   openPanel('overlay-detail');
+  // 사진 비동기 로드
+  dbGetPhotos(id).then(photos => {
+    const area = document.getElementById('detail-photo-area');
+    if (!area || !photos.length) return;
+    area.innerHTML = `<div class="detail-field">
+      <div class="detail-field-label">사진</div>
+      <div class="photo-grid">${photos.map(p =>
+        `<img class="photo-thumb" src="${p.dataUrl}" onclick="openPhotoViewer('${p.dataUrl}')">`
+      ).join('')}</div>
+    </div>`;
+  }).catch(() => {});
 }
 
 // 미니 좌석도 (상세 패널용)
@@ -1642,6 +1895,7 @@ function deleteCurrentRecord() {
     if (stampChanged) saveStampBoards(boards);
   }
   saveRecords(records.filter(x => x.id !== currentDetailId));
+  dbDeleteRecordPhotos(currentDetailId);
   closePanel('overlay-detail');
   renderCouponList(); showToast('기록이 삭제되었습니다'); refreshCurrentPage();
 }
@@ -1658,13 +1912,7 @@ function applyDark(on) {
   if (on) btn.classList.add('on'); else btn.classList.remove('on');
 }
 
-function exportData() {
-  const data = { records: getRecords(), schedule: getSchedule(), events: getEvents(), stampBoards: getStampBoards(), coupons: getCoupons(), settings: getSettings() };
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
-  a.download = `widerstand_backup_${localDate()}.json`;
-  a.click(); showToast('백업 파일이 다운로드되었습니다');
-}
+function exportData() { openPanel('overlay-export'); } // → doExport()
 function importData(e) {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
@@ -1677,6 +1925,7 @@ function importData(e) {
       if (data.stampBoards) saveStampBoards(data.stampBoards);
       if (data.coupons)     saveCoupons(data.coupons);
       if (data.settings) { saveSettings(data.settings); applyDark(data.settings.darkMode); }
+      if (data.photos && data.photos.length) dbSaveAllPhotos(data.photos);
       showToast('데이터를 성공적으로 불러왔습니다');
       renderHome(); renderCalendar(); renderCoupon(); renderStats();
     } catch { showToast('파일 형식 오류'); }
@@ -2071,7 +2320,7 @@ function renderCalDayPanel(ds, daySch, doneSet, bookedSet, records) {
       const badge = isBooked ? '<span class="cal-session-badge booked">✓ 예매확정</span>' : isDone ? '<span class="cal-session-badge done">✅</span>' : '';
       const castStr = ROLES.map(r => s[r.key]).filter(Boolean).join(' · ');
       const btn = recs.length === 0
-        ? `<button class="cal-session-add" onclick="openAddRecordFromSchedule('${ds}','${s.time}','${JSON.stringify(s).replace(/'/g,"\\'")}')">+ 기록</button>`
+        ? `<button class="cal-session-add" onclick="openAddRecordFromSchedule('${ds}','${s.time}','${JSON.stringify(s).replace(/"/g,'&quot;')}')">+ 기록</button>`
         : recs.map((r,i) => `<button class="cal-session-add" onclick="openDetail('${r.id}')">${recs.length>1?`상세${i+1}`:'상세'}</button>`).join('');
       html += `<div class="cal-session-row"><div class="cal-session-time">${s.time}</div><div class="cal-session-casting">${castStr}</div>${badge}${btn}</div>`;
     });
@@ -2087,7 +2336,7 @@ function renderCalDayPanel(ds, daySch, doneSet, bookedSet, records) {
 function openAddRecordFromSchedule(date, time, scheduleJson) {
   openAddRecord(date);
   setTimeout(() => {
-    const s = JSON.parse(scheduleJson);
+    const s = JSON.parse(scheduleJson.replace(/&quot;/g, '"'));
     const timeEl = document.getElementById('rec-time');
     if (timeEl) timeEl.value = time;
     fillRolesFromSchedule(s);
