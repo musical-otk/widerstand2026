@@ -109,6 +109,7 @@
   .cal-session-chip .cs-time{color:var(--text2);flex-shrink:0;font-weight:600;}
   .cal-session-chip.booked .cs-time{color:var(--success);font-weight:700;}
   .cal-session-chip.done .cs-time{color:var(--accent);font-weight:700;}
+  .cal-session-chip .cs-icon{font-size:9px;line-height:1;flex-shrink:0;}
 
   /* 캘린더 필터 */
   .cal-filter{margin-bottom:10px;}
@@ -2272,7 +2273,7 @@ function renderCalendar() {
         const key = `${ds}-${s.time}`;
         const isBooked = bookedSet.has(key), isDone = doneSet.has(key);
         const chipCls  = isBooked ? 'cal-session-chip booked' : isDone ? 'cal-session-chip done' : 'cal-session-chip';
-        return `<div class="${chipCls}"><span class="cs-time">${s.time}</span></div>`;
+        return `<div class="${chipCls}"><span class="cs-icon">${isDone ? '✅' : ''}</span><span class="cs-time">${s.time}</span></div>`;
       }).join('');
       html += `<div class="${cls}" onclick="calDayClick('${ds}')">
         <span class="cal-day-num">${day}</span>
