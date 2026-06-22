@@ -819,6 +819,26 @@
   </div>
 </div>
 
+<!-- ===== STAMP OVERFLOW CONFIRM ===== -->
+<div class="overlay" id="overlay-stamp-overflow">
+  <div class="panel">
+    <div class="panel-handle"></div>
+    <div style="text-align:center;padding:8px 0 20px;">
+      <div style="font-size:36px;margin-bottom:10px;">🎫✨</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:8px;">도장판 완성!</div>
+      <p id="overflow-desc" style="font-size:14px;color:var(--text2);line-height:1.6;"></p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn btn-primary" style="padding:14px;" onclick="confirmStampOverflow()">
+        새 카드 만들고 계속 찍기
+      </button>
+      <button class="btn btn-outline" onclick="closePanel('overlay-stamp-overflow')">
+        취소 (남은 도장 버리기)
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== STAMP HISTORY PANEL ===== -->
 <div class="overlay" id="overlay-stamp-history">
   <div class="panel">
@@ -2959,21 +2979,56 @@ function applyStampToBoard(boardId, qty, date, historyMethod, comment) {
   if (!board) return null;
   recalcStampCount(board);
   if (board.currentCount >= board.totalSlots) return '이미 완성된 도장판입니다';
-  const remaining = board.totalSlots - board.currentCount;
-  const actualQty = Math.min(qty, remaining);
+  const remaining   = board.totalSlots - board.currentCount;
+  const actualQty   = Math.min(qty, remaining);
+  const overflowQty = qty - actualQty;
   if (!board.history) board.history = [];
   const qtyLabel = actualQty>1?' ×'+actualQty:'';
   board.history.push({ date, method: historyMethod+qtyLabel, comment:comment||'', qty:actualQty });
   recalcStampCount(board);
   let toastMsg = `도장 ${actualQty}개 완료 (${board.currentCount}/${board.totalSlots})`;
   triggerMilestonesIfNeeded(board, boardId);
-  // 최종 달성
-  if (board.currentCount >= board.totalSlots && !board.milestones?.find(m=>m.at===board.totalSlots&&!m.notified)) {
+  if (board.currentCount >= board.totalSlots) {
     toastMsg = '★ 아이드 도서카드 완성!';
-    if (actualQty < qty) toastMsg += ` (${qty-actualQty}개 초과분 제외)`;
   }
   saveStampBoards(boards);
+  // 오버플로우: 남은 도장 새 카드에 찍을지 확인
+  if (overflowQty > 0) {
+    setTimeout(() => showStampOverflowConfirm(overflowQty, date, historyMethod, comment), 500);
+  }
   return toastMsg;
+}
+
+// 오버플로우 확인 모달
+let _overflowPending = null;
+function showStampOverflowConfirm(qty, date, method, comment) {
+  _overflowPending = { qty, date, method, comment };
+  const desc = document.getElementById('overflow-desc');
+  if (desc) desc.textContent = `남은 ${qty}개 도장을 새 카드를 만들어 계속 찍을까요?`;
+  openPanel('overlay-stamp-overflow');
+}
+function confirmStampOverflow() {
+  if (!_overflowPending) return;
+  const { qty, date, method, comment } = _overflowPending;
+  _overflowPending = null;
+  closePanel('overlay-stamp-overflow');
+  // 새 도장판 자동 생성
+  const boards = getStampBoards();
+  const maxNum = boards.reduce((max, b) => { const n=parseInt(b.name); return (!isNaN(n)&&n>max)?n:max; }, 0);
+  const newBoard = {
+    id: uuid(), name: String(maxNum + 1), totalSlots: 7,
+    milestones: [
+      { at:4, reward:'50% 실물 할인권 OR 폴라로이드', couponKey:'discount50', qty:1, notified:false, choiceRequired:true, rewardChoice:null },
+      { at:7, reward:'📸 폴라로이드 (캐스트 지정)', couponKey:null, notified:false }
+    ],
+    currentCount: 0, history: []
+  };
+  boards.push(newBoard);
+  saveStampBoards(boards);
+  applyStampToBoard(newBoard.id, qty, date, method, comment);
+  showToast(`[🎫 ${newBoard.name}번 카드] 새로 시작 — ${qty}개 도장 추가!`);
+  renderStampBoards(); renderCouponList(); renderHome();
+  populateStampSelect();
 }
 
 // 마일스톤 트리거
