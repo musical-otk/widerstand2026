@@ -1764,6 +1764,8 @@ function saveRecord() {
         b2.history[b2.history.length - 1].recordId = record.id;
         saveStampBoards(boards2);
       }
+      // 오버플로우 대기 중이면 recordId 연결 (새 보드 이력에도 recordId 붙이기 위해)
+      if (_overflowPending) _overflowPending.recordId = record.id;
       showToast(toastMsg || '기록이 추가되었습니다');
     } else {
       showToast('기록이 추가되었습니다');
@@ -1906,12 +1908,16 @@ function deleteCurrentRecord() {
     boards.forEach(board => {
       if (!board.history) return;
       const before = board.history.length;
-      board.history = board.history.filter(h => h.recordId !== target.id);
-      if (board.id === target.stampBoardId && board.history.length === before) {
-        const idx = board.history.map((h,i)=>({h,i})).reverse().find(({h}) => h.date === target.date);
-        if (idx !== undefined) board.history.splice(idx.i, 1);
+      // ① recordId 기반 삭제 (메인 보드 + 오버플로우 보드 모두 처리)
+      board.history = board.history.filter(h => !h.recordId || h.recordId !== target.id);
+      // ② fallback: recordId 없는 경우 → 연결된 보드에서 날짜 기준 마지막 항목 제거
+      if (board.history.length === before && board.id === target.stampBoardId) {
+        const ri = [...board.history].reverse().findIndex(h => h.date === target.date);
+        if (ri !== -1) board.history.splice(board.history.length - 1 - ri, 1);
       }
-      if (board.history.length !== before) { recalcStampCount(board); revalidateMilestones(board); stampChanged = true; }
+      if (board.history.length !== before) {
+        recalcStampCount(board); revalidateMilestones(board); stampChanged = true;
+      }
     });
     if (stampChanged) saveStampBoards(boards);
   }
@@ -3009,7 +3015,7 @@ function showStampOverflowConfirm(qty, date, method, comment) {
 }
 function confirmStampOverflow() {
   if (!_overflowPending) return;
-  const { qty, date, method, comment } = _overflowPending;
+  const { qty, date, method, comment, recordId } = _overflowPending;
   _overflowPending = null;
   closePanel('overlay-stamp-overflow');
   // 새 도장판 자동 생성
@@ -3026,6 +3032,15 @@ function confirmStampOverflow() {
   boards.push(newBoard);
   saveStampBoards(boards);
   applyStampToBoard(newBoard.id, qty, date, method, comment);
+  // 새 보드 이력에도 recordId 연결 → 예매 삭제 시 같이 제거됨
+  if (recordId) {
+    const bds = getStampBoards();
+    const nb  = bds.find(b => b.id === newBoard.id);
+    if (nb?.history?.length) {
+      nb.history[nb.history.length - 1].recordId = recordId;
+      saveStampBoards(bds);
+    }
+  }
   showToast(`[🎫 ${newBoard.name}번 카드] 새로 시작 — ${qty}개 도장 추가!`);
   renderStampBoards(); renderCouponList(); renderHome();
   populateStampSelect();
