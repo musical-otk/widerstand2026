@@ -11,22 +11,22 @@
 <meta name="apple-mobile-web-app-title" content="비더슈탄트">
 <style>
   :root {
-    --bg:#f8f8f4;--bg1:#ffffff;--bg2:#ffffff;--bg3:#f0f0e8;
-    --border:#e0dcd0;--text:#1a1a14;--text1:#1a1a14;--text2:#555044;--text3:#999880;
-    --accent:#8B6B28;--accent2:#6A4F18;--accent-light:rgba(139,107,40,0.10);
-    --danger:#cc4444;--success:#2a8a4a;--star:#f0a020;
-    --seat1:#D4C0A0;--seat2:#BCA070;--seat3:#9C7840;--seat4:#7A5820;--seat5:#503010;
-    --shadow:0 2px 12px rgba(0,0,0,0.08);--radius:12px;--tab-h:64px;
+    --bg:#F8F5F1;--bg1:#FEFCFA;--bg2:#FEFCFA;--bg3:#EEE8E0;
+    --border:#DDD4C8;--text:#2C2018;--text1:#2C2018;--text2:#6B5547;--text3:#A08878;
+    --accent:#9B7B5A;--accent2:#7A5E40;--accent-light:rgba(155,123,90,0.10);
+    --danger:#cc4444;--success:#3a8a52;--star:#C8902A;
+    --seat1:#EBD9C4;--seat2:#CEB090;--seat3:#A88660;--seat4:#7E5F3E;--seat5:#4A3220;
+    --shadow:0 2px 14px rgba(44,32,24,0.08);--radius:12px;--tab-h:64px;
   }
   [data-theme="dark"]{
-    --bg:#111108;--bg1:#1a1a10;--bg2:#1a1a10;--bg3:#22220e;
-    --border:#333318;--text:#f0f0d8;--text1:#f0f0d8;--text2:#aaaa90;--text3:#666648;
-    --accent:#C4A060;--accent2:#D4B070;--accent-light:#2A200A;
+    --bg:#0A0A0A;--bg1:#141414;--bg2:#141414;--bg3:#1E1E1E;
+    --border:#2E2E2E;--text:#F0E8DF;--text1:#F0E8DF;--text2:#B89A88;--text3:#7A6454;
+    --accent:#C09870;--accent2:#D0A880;--accent-light:#2E1E10;
     --danger:#ee6666;--success:#44aa66;
-    --shadow:0 2px 12px rgba(0,0,0,0.4);
-    --seat1:#3A2C08;--seat2:#584010;--seat3:#7A5C18;--seat4:#9C7828;--seat5:#C09840;
+    --shadow:0 2px 12px rgba(0,0,0,0.45);
+    --seat1:#6A4E36;--seat2:#8C6A48;--seat3:#AE875C;--seat4:#C8A272;--seat5:#E4BE90;
   }
-  [data-theme="dark"] .next-show-card{background:linear-gradient(135deg,#3C2C08 0%,#5A4010 100%);color:#fff;}
+  [data-theme="dark"] .next-show-card{background:linear-gradient(135deg,#2A1E14 0%,#3E2C1C 100%);color:#fff;}
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'Apple SD Gothic Neo',sans-serif;background:var(--bg);color:var(--text);max-width:480px;margin:0 auto;min-height:100vh;}
   #app{padding-bottom:calc(var(--tab-h) + env(safe-area-inset-bottom,0px));}
@@ -165,6 +165,9 @@
   .hm-gap{width:4px;flex-shrink:0;}
   .hm-row-gap{height:6px;}
   .heatmap-legend{display:flex;gap:10px;justify-content:center;margin-top:10px;flex-wrap:wrap;}
+  .stats-subtabs{display:flex;gap:0;margin-bottom:14px;background:var(--bg3);border-radius:10px;padding:3px;}
+  .stats-subtab{flex:1;padding:8px 4px;border-radius:8px;border:none;background:none;color:var(--text2);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;font-family:inherit;}
+  .stats-subtab.active{background:var(--bg2);color:var(--text1);font-weight:700;box-shadow:var(--shadow);}
   .legend-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);}
   .legend-dot{width:14px;height:14px;border-radius:3px;}
 
@@ -218,7 +221,7 @@
   .history-type{color:var(--text3);white-space:nowrap;}
 
   /* HOME */
-  .next-show-card{background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);border-radius:var(--radius);padding:18px;margin-bottom:8px;color:#fff;position:relative;overflow:hidden;cursor:pointer;}
+  .next-show-card{background:linear-gradient(135deg,#A88560 0%,#7A5E40 100%);border-radius:var(--radius);padding:18px;margin-bottom:8px;color:#fff;position:relative;overflow:hidden;cursor:pointer;}
   .next-show-card::before{content:'⚔️';position:absolute;right:14px;top:10px;font-size:44px;opacity:0.12;}
   .next-show-dday{font-size:32px;font-weight:900;letter-spacing:-1px;margin-bottom:4px;}
   .next-show-dday.today-dday{color:#ffe066;}
@@ -364,81 +367,71 @@
 <!-- ========== STATS ========== -->
 <div class="page" id="page-stats">
   <div class="page-header"><div class="page-title">😌 통계</div></div>
-  <div class="card">
-    <div class="card-title">💺 좌석 히트맵</div>
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <button class="heatmap-tab active" id="hm-tab-1f" onclick="switchHmFloor('1층',this)">1층</button>
-      <button class="heatmap-tab" id="hm-tab-2f" onclick="switchHmFloor('2층',this)">2층</button>
-    </div>
-    <div class="heatmap-scroll"><div class="heatmap-wrap" id="heatmap"></div></div>
-    <div class="heatmap-legend">
-      <div class="legend-item"><div class="legend-dot" style="background:var(--bg3);border:1px solid var(--border)"></div>0회</div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--seat1)"></div>1회</div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--seat2)"></div>2회</div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--seat3)"></div>3회</div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--seat4)"></div>4회</div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--seat5)"></div>5회+</div>
+  <!-- 서브탭 -->
+  <div class="stats-subtabs">
+    <button class="stats-subtab active" onclick="switchStatTab('heatmap',this)">💺 히트맵</button>
+    <button class="stats-subtab" onclick="switchStatTab('actors',this)">🎭 배우별</button>
+    <button class="stats-subtab" onclick="switchStatTab('pairs',this)">🔗 페어별</button>
+    <button class="stats-subtab" onclick="switchStatTab('money',this)">💰 지출</button>
+  </div>
+  <!-- 히트맵 (기본) -->
+  <div id="stats-section-heatmap">
+    <div class="card">
+      <div class="card-title">💺 좌석 히트맵</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button class="heatmap-tab active" id="hm-tab-1f" onclick="switchHmFloor('1층',this)">1층</button>
+        <button class="heatmap-tab" id="hm-tab-2f" onclick="switchHmFloor('2층',this)">2층</button>
+      </div>
+      <div class="heatmap-scroll"><div class="heatmap-wrap" id="heatmap"></div></div>
+      <div class="heatmap-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--bg3);border:1px solid var(--border)"></div>0회</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--seat1)"></div>1회</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--seat2)"></div>2회</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--seat3)"></div>3회</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--seat4)"></div>4회</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--seat5)"></div>5회+</div>
+      </div>
     </div>
   </div>
-  <div class="card">
-    <div class="card-title">🎭 배우별 관람 횟수</div>
-    <table class="stats-table" id="stats-actors"></table>
-  </div>
-  <div class="card">
-    <div class="card-title">🔗 조합 통계</div>
-    <div class="pair-filter-grid">
-      <div class="pair-filter-item">
-        <div class="pair-filter-label">매그너스</div>
-        <select class="pair-filter-sel" id="pf-magnus" onchange="renderPairStats()">
-          <option value="">전체</option>
-          <option>최석진</option><option>한상훈</option><option>황순종</option>
-        </select>
-      </div>
-      <div class="pair-filter-item">
-        <div class="pair-filter-label">아벨</div>
-        <select class="pair-filter-sel" id="pf-abel" onchange="renderPairStats()">
-          <option value="">전체</option>
-          <option>박정원</option><option>이한솔</option><option>강병훈</option>
-        </select>
-      </div>
-      <div class="pair-filter-item">
-        <div class="pair-filter-label">프레드릭</div>
-        <select class="pair-filter-sel" id="pf-fredrick" onchange="renderPairStats()">
-          <option value="">전체</option>
-          <option>김도현</option><option>김방언</option><option>김준식</option>
-        </select>
-      </div>
-      <div class="pair-filter-item">
-        <div class="pair-filter-label">하겐</div>
-        <select class="pair-filter-sel" id="pf-hagen" onchange="renderPairStats()">
-          <option value="">전체</option>
-          <option>조모세</option><option>김지웅</option><option>황건우</option>
-        </select>
-      </div>
-      <div class="pair-filter-item">
-        <div class="pair-filter-label">재스퍼</div>
-        <select class="pair-filter-sel" id="pf-jasper" onchange="renderPairStats()">
-          <option value="">전체</option>
-          <option>김태환</option><option>최기정</option><option>김도민</option>
-        </select>
-      </div>
-      <div class="pair-filter-item">
-        <div class="pair-filter-label">클레어</div>
-        <select class="pair-filter-sel" id="pf-claire" onchange="renderPairStats()">
-          <option value="">전체</option>
-          <option>김보현</option><option>이형훈</option><option>고철순</option>
-        </select>
-      </div>
+  <!-- 배우별 -->
+  <div id="stats-section-actors" style="display:none;">
+    <div class="card">
+      <div class="card-title">🎭 배우별 관람 횟수</div>
+      <table class="stats-table" id="stats-actors"></table>
     </div>
-    <div id="stats-pairs-result"></div>
   </div>
-  <div class="card">
-    <div class="flex-between" style="margin-bottom:8px;">
-      <div class="card-title" style="margin:0;">💰 지출 현황</div>
-      <button class="btn btn-outline btn-sm" id="money-reveal-btn" onclick="toggleMoneyBlur()">👁👁</button>
+  <!-- 페어별 -->
+  <div id="stats-section-pairs" style="display:none;">
+    <div class="card">
+      <div class="card-title">🔗 페어별 통계</div>
+      <div class="cal-role-tabs" id="pair-role-tabs" style="justify-content:center;padding:4px 0 8px;">
+        <button class="cal-role-tab" data-role="magnus"   onclick="selectPairRole('magnus',this)">매그너스</button>
+        <span class="cal-role-sep">·</span>
+        <button class="cal-role-tab" data-role="abel"     onclick="selectPairRole('abel',this)">아벨</button>
+        <span class="cal-role-sep">·</span>
+        <button class="cal-role-tab" data-role="fredrick" onclick="selectPairRole('fredrick',this)">프레드릭</button>
+        <span class="cal-role-sep">·</span>
+        <button class="cal-role-tab" data-role="hagen"    onclick="selectPairRole('hagen',this)">하겐</button>
+        <span class="cal-role-sep">·</span>
+        <button class="cal-role-tab" data-role="jasper"   onclick="selectPairRole('jasper',this)">재스퍼</button>
+        <span class="cal-role-sep">·</span>
+        <button class="cal-role-tab" data-role="claire"   onclick="selectPairRole('claire',this)">클레어</button>
+      </div>
+      <div id="pair-actor-chips" style="display:none;margin-bottom:10px;"></div>
+      <button class="btn btn-primary" style="width:100%;margin-bottom:14px;" onclick="queryPairStats()">조회</button>
+      <div id="stats-pairs-result"></div>
     </div>
-    <div class="money-blur-wrap blurred" id="money-blur">
-      <div id="stats-money"></div>
+  </div>
+  <!-- 지출 -->
+  <div id="stats-section-money" style="display:none;">
+    <div class="card">
+      <div class="flex-between" style="margin-bottom:8px;">
+        <div class="card-title" style="margin:0;">💰 지출 현황</div>
+        <button class="btn btn-outline btn-sm" id="money-reveal-btn" onclick="toggleMoneyBlur()">👁👁</button>
+      </div>
+      <div class="money-blur-wrap blurred" id="money-blur">
+        <div id="stats-money"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -2120,7 +2113,7 @@ function renderStats() {
   // 배우별 관람 횟수
   let ah = '';
   ROLES.forEach(role => {
-    ah += `<tr><th colspan="3" class="role-section-title">${role.label}</th></tr><tr><th>배우</th><th>총 회차</th><th>관람</th></tr>`;
+    ah += `<tr><th colspan="3" class="role-section-title">${role.label}</th></tr><tr><th>배우</th><th style="text-align:center;">총 회차</th><th>관람</th></tr>`;
     role.actors.forEach(actor => {
       const tot  = schedule.filter(s => s[role.key] === actor).length;
       const seen = records.filter(r => r[role.key] === actor).length;
@@ -2145,41 +2138,129 @@ function renderStats() {
   if (moneyBlurred) blurEl.classList.add('blurred'); else blurEl.classList.remove('blurred');
 }
 
-// 페어 드롭다운 필터 통계
-function renderPairStats() {
-  const filters = {};
-  ROLES.forEach(r => {
-    const el = document.getElementById('pf-' + r.key);
-    if (el) filters[r.key] = el.value || null;
+// ============================================================
+// 조합 통계 (배우 선택 → 조회)
+// ============================================================
+const pairExpandedRoles = new Set();
+const pairSelectedActors = {}; // { role: actor }
+
+function selectPairRole(role, btn) {
+  if (pairExpandedRoles.has(role)) {
+    pairExpandedRoles.delete(role);
+    btn.classList.remove('expanded');
+  } else {
+    pairExpandedRoles.add(role);
+    btn.classList.add('expanded');
+  }
+  renderPairActorChips();
+}
+
+function renderPairActorChips() {
+  const container = document.getElementById('pair-actor-chips');
+  if (!container) return;
+  if (pairExpandedRoles.size === 0) { container.style.display = 'none'; container.innerHTML = ''; return; }
+  container.style.display = '';
+  container.style.borderTop = '';
+  container.style.paddingTop = '';
+  container.innerHTML = ROLES
+    .filter(r => pairExpandedRoles.has(r.key))
+    .map(roleData => {
+      const cur = pairSelectedActors[roleData.key];
+      const chips = roleData.actors.map(a => {
+        const active = cur === a;
+        return `<button class="cal-chip${active ? ' active' : ''}" onclick="setPairActor('${roleData.key}','${a}')">${a}</button>`;
+      }).join('');
+      return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);">
+        <span style="font-size:11px;color:var(--accent);font-weight:700;min-width:44px;flex-shrink:0;">${roleData.label}</span>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">${chips}</div>
+      </div>`;
+    }).join('');
+}
+
+function setPairActor(role, actor) {
+  if (pairSelectedActors[role] === actor) delete pairSelectedActors[role];
+  else pairSelectedActors[role] = actor;
+  renderPairActorChips();
+  // 탭 has-filter 표시
+  document.querySelectorAll('#pair-role-tabs .cal-role-tab').forEach(btn => {
+    btn.classList.toggle('has-filter', !!pairSelectedActors[btn.dataset.role]);
   });
-  const hasFilter = Object.values(filters).some(v => v);
+}
+
+function queryPairStats() {
+  const selected = Object.entries(pairSelectedActors);
   const el = document.getElementById('stats-pairs-result');
   if (!el) return;
-  if (!hasFilter) {
-    el.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:13px;padding:16px 0;">배우를 선택하면 조합 통계가 표시됩니다</div>';
+  if (selected.length < 2) {
+    el.innerHTML = '<div style="color:var(--danger);font-size:13px;text-align:center;padding:14px 0;">⚠ 최소 2명을 선택해주세요</div>';
     return;
   }
-  const records  = getRecords();
   const schedule = getSchedule();
-  const filtered = records.filter(r => ROLES.every(role => !filters[role.key] || r[role.key] === filters[role.key]));
-  if (!filtered.length) {
-    el.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:13px;padding:16px 0;">해당 조합 관람 기록 없음</div>';
+  const records  = getRecords();
+
+  // 선택 배우를 모두 포함하는 스케줄/기록 필터
+  function matchSelected(entry) {
+    return selected.every(([role, actor]) => entry[role] === actor);
+  }
+
+  const combos = {};
+  // 스케줄 기준 집계
+  schedule.filter(matchSelected).forEach(s => {
+    const key = ROLES.map(r => s[r.key] || '').join('|');
+    if (!combos[key]) combos[key] = { casting: s, scheduleCount: 0, seenCount: 0 };
+    combos[key].scheduleCount++;
+  });
+  // 관람 기록 매칭 (스케줄에 없는 기록도 포함)
+  records.filter(matchSelected).forEach(r => {
+    const key = ROLES.map(role => r[role.key] || '').join('|');
+    if (!combos[key]) combos[key] = { casting: r, scheduleCount: 0, seenCount: 0 };
+    combos[key].seenCount++;
+  });
+
+  const list = Object.values(combos);
+  if (!list.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:14px 0;">해당 조합 없음</div>';
     return;
   }
-  // 전체 6역할 조합별 카운트
-  const comboCounts = {};
-  filtered.forEach(r => {
-    const key = ROLES.map(role => r[role.key] || '-').join('|');
-    comboCounts[key] = (comboCounts[key] || 0) + 1;
+
+  // 정렬: 스케줄 0회 최하단 / 관람 많은 순 / 스케줄 많은 순
+  list.sort((a, b) => {
+    if ((a.scheduleCount === 0) !== (b.scheduleCount === 0)) return a.scheduleCount === 0 ? 1 : -1;
+    if (b.seenCount !== a.seenCount) return b.seenCount - a.seenCount;
+    return b.scheduleCount - a.scheduleCount;
   });
-  const sorted = Object.entries(comboCounts).sort((a,b) => b[1]-a[1]);
-  const headers = ROLES.map(r => `<th>${r.label}</th>`).join('') + '<th>관람</th>';
-  const rows = sorted.map(([combo, cnt]) => {
-    const parts = combo.split('|');
-    return '<tr>' + parts.map(p => `<td>${p}</td>`).join('') + `<td>${cnt}</td></tr>`;
+
+  const totalSched = list.reduce((s, c) => s + c.scheduleCount, 0);
+  const totalSeen  = list.reduce((s, c) => s + c.seenCount, 0);
+
+  const headers = ROLES.map(r => `<th>${r.label}</th>`).join('') + '<th style="text-align:center;">총 회차</th><th>관람</th>';
+  const rows = list.map(c => {
+    const isGrey = c.scheduleCount === 0;
+    const style  = isGrey ? ' style="opacity:0.4;"' : '';
+    const actorCells = ROLES.map(r => {
+      const actor = c.casting[r.key] || '-';
+      const isSel = pairSelectedActors[r.key] === actor;
+      return `<td${isSel ? ' style="color:var(--accent);font-weight:700;"' : ''}>${actor}</td>`;
+    }).join('');
+    return `<tr${style}>${actorCells}<td style="color:var(--text3)">${c.scheduleCount}</td><td>${c.seenCount}</td></tr>`;
   }).join('');
-  el.innerHTML = `<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">총 ${filtered.length}회 관람 기록</div>
-    <table class="stats-table"><tr>${headers}</tr>${rows}</table>`;
+
+  el.innerHTML = `<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">${list.length}가지 조합 · 스케줄 ${totalSched}회 · 내 관람 ${totalSeen}회</div>
+    <div style="overflow-x:auto;"><table class="stats-table"><tr>${headers}</tr>${rows}</table></div>`;
+}
+
+// 하위 호환 (renderStats에서 호출)
+function renderPairStats() { /* 이제 queryPairStats로 대체 — 초기화만 */ }
+
+// 통계 서브탭 전환
+function switchStatTab(tab, btn) {
+  ['heatmap','actors','pairs','money'].forEach(t => {
+    const el = document.getElementById('stats-section-' + t);
+    if (el) el.style.display = t === tab ? '' : 'none';
+  });
+  document.querySelectorAll('.stats-subtab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (tab === 'heatmap') renderHeatmap();
 }
 
 // ============================================================
