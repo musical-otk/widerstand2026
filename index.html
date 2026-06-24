@@ -830,10 +830,10 @@
       <p id="overflow-desc" style="font-size:14px;color:var(--text2);line-height:1.6;"></p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;">
-      <button id="overflow-ok-btn" class="btn btn-primary" style="padding:14px;">
+      <button class="btn btn-primary" style="padding:14px;" onclick="doOverflowOK()">
         새 카드 만들고 계속 찍기
       </button>
-      <button id="overflow-cancel-btn" class="btn btn-outline">
+      <button class="btn btn-outline" onclick="doOverflowCancel()">
         취소
       </button>
     </div>
@@ -3104,35 +3104,41 @@ function checkRecFormOverflow() {
   if (desc) desc.innerHTML =
     `<strong>${qty}개</strong> 중 <strong>${remaining > 0 ? remaining : '이미 가득 찼으므로'}</strong>이(가) 현재 카드에,<br>
      <strong>${overflowQty}개</strong>는 새 카드에 자동 추가됩니다.`;
-  document.getElementById('overflow-ok-btn').onclick = () => {
-    _recFormOverflowOK = true;
-    closePanel('overlay-stamp-overflow');
-  };
-  document.getElementById('overflow-cancel-btn').onclick = () => {
-    _recFormOverflowOK = false;
-    document.getElementById('rec-stamp-board').value = '';
-    onRecStampBoardChange();
-    closePanel('overlay-stamp-overflow');
-  };
+  _overflowContext = 'form';
   openPanel('overlay-stamp-overflow');
 }
 
 // ── 독립 도장 찍기(addStamp)에서 오버플로우 팝업 ───────────────────
 let _standaloneOverflow = null;
+let _overflowContext = null; // 'form' | 'standalone'
+
+function doOverflowOK() {
+  if (_overflowContext === 'form') {
+    _recFormOverflowOK = true;
+    closePanel('overlay-stamp-overflow');
+  } else if (_overflowContext === 'standalone') {
+    const p = _standaloneOverflow; _standaloneOverflow = null; _overflowContext = null;
+    closePanel('overlay-stamp-overflow');
+    if (p) createOverflowBoard(p.qty, p.date, p.method, p.comment, null);
+  }
+}
+function doOverflowCancel() {
+  if (_overflowContext === 'form') {
+    _recFormOverflowOK = false;
+    document.getElementById('rec-stamp-board').value = '';
+    onRecStampBoardChange();
+  } else {
+    _standaloneOverflow = null;
+  }
+  _overflowContext = null;
+  closePanel('overlay-stamp-overflow');
+}
 
 function showStandaloneOverflowConfirm(qty, date, method, comment) {
   _standaloneOverflow = { qty, date, method, comment };
   const desc = document.getElementById('overflow-desc');
   if (desc) desc.textContent = `남은 ${qty}개 도장을 새 카드를 만들어 계속 찍을까요?`;
-  document.getElementById('overflow-ok-btn').onclick = () => {
-    const p = _standaloneOverflow; _standaloneOverflow = null;
-    closePanel('overlay-stamp-overflow');
-    if (p) { createOverflowBoard(p.qty, p.date, p.method, p.comment, null); }
-  };
-  document.getElementById('overflow-cancel-btn').onclick = () => {
-    _standaloneOverflow = null;
-    closePanel('overlay-stamp-overflow');
-  };
+  _overflowContext = 'standalone';
   openPanel('overlay-stamp-overflow');
 }
 
