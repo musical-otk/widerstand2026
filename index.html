@@ -1599,6 +1599,7 @@ function resetTimeOptions() {
 // OPEN ADD / EDIT RECORD
 // ============================================================
 function openAddRecord(date) {
+  _stampFormInitializing = true;
   document.getElementById('record-panel-title').textContent = '관람 기록 추가';
   document.getElementById('edit-record-id').value = '';
   document.getElementById('rec-date').value = date || '';
@@ -1621,6 +1622,7 @@ function openAddRecord(date) {
   onRecStampBoardChange();
   resetStars();
   setupPhotoForm(null);
+  _stampFormInitializing = false;
   if (date) autoFillCasting();
   openPanel('overlay-record');
 }
@@ -1651,12 +1653,15 @@ function editRecord(id) {
   document.getElementById('rec-comment').value = r.comment || '';
   document.getElementById('rec-memo').value    = r.memo    || '';
   document.getElementById('rec-unconfirmed').checked = r.isBooked === false;
+  _stampFormInitializing = true;
+  document.getElementById('rec-stamp-board').value = ''; // 이전 폼 잔류값 초기화
   populateStampSelect(r.stampBoardId || null);
+  // qty를 먼저 record 원본값으로 초기화해야 overflow 체크가 올바른 qty로 판단
+  const _rQty = (r.stampBoardId && r.stampQty) ? String(r.stampQty) : '1';
+  const _rQEl = document.querySelector(`input[name="rec-stamp-qty"][value="${_rQty}"]`);
+  if (_rQEl) { _rQEl.checked = true; updateRecQtyLabel(); }
+  _stampFormInitializing = false;
   onRecStampBoardChange();
-  if (r.stampBoardId && r.stampQty) {
-    const qEl = document.querySelector(`input[name="rec-stamp-qty"][value="${r.stampQty}"]`);
-    if (qEl) { qEl.checked = true; updateRecQtyLabel(); }
-  }
   setStar(r.rating || 0);
   setupPhotoForm(id);
   openPanel('overlay-record');
@@ -3078,8 +3083,10 @@ function createOverflowBoard(qty, date, method, comment, recordId) {
 
 // ── 기록 폼에서 오버플로우 체크 (도장판 선택/수량 변경 시) ─────────
 let _recFormOverflowOK = false; // 폼에서 이미 확인한 경우
+let _stampFormInitializing = false; // 폼 초기화 중 overflow 체크 방지
 
 function checkRecFormOverflow() {
+  if (_stampFormInitializing) return; // 폼 초기화 중엔 체크 안 함
   const boardId = document.getElementById('rec-stamp-board')?.value;
   const qtyEl   = document.querySelector('input[name="rec-stamp-qty"]:checked');
   _recFormOverflowOK = false;
