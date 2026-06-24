@@ -829,11 +829,11 @@
       <p id="overflow-desc" style="font-size:14px;color:var(--text2);line-height:1.6;"></p>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;">
-      <button class="btn btn-primary" style="padding:14px;" onclick="confirmStampOverflow()">
+      <button id="overflow-ok-btn" class="btn btn-primary" style="padding:14px;">
         새 카드 만들고 계속 찍기
       </button>
-      <button class="btn btn-outline" onclick="closePanel('overlay-stamp-overflow')">
-        취소 (남은 도장 버리기)
+      <button id="overflow-cancel-btn" class="btn btn-outline">
+        취소
       </button>
     </div>
   </div>
@@ -1526,9 +1526,12 @@ function onRecStampBoardChange() {
   const qg  = document.getElementById('rec-stamp-qty-group');
   if (qg) qg.style.display = val ? '' : 'none';
   if (!val) {
+    _recFormOverflowOK = false;
     const r1 = document.querySelector('input[name="rec-stamp-qty"][value="1"]');
     if (r1) { r1.checked = true; updateRecQtyLabel(); }
+    return;
   }
+  checkRecFormOverflow();
 }
 function updateRecQtyLabel() {
   const checked = document.querySelector('input[name="rec-stamp-qty"]:checked');
@@ -1542,6 +1545,8 @@ function updateRecQtyLabel() {
     el.style.color       = active ? 'var(--accent)' : '';
     el.style.fontWeight  = active ? '700' : '';
   });
+  // 수량 변경 시 오버플로우 재체크
+  if (document.getElementById('rec-stamp-board')?.value) checkRecFormOverflow();
 }
 function openAddStampBoardFromRecord() {
   document.getElementById('stamp-name').value = '';
@@ -1756,16 +1761,22 @@ function saveRecord() {
   } else {
     records.push(record);
     if (stampBoardId) {
-      const castStr = buildCastSummary(record);
-      const toastMsg = applyStampToBoard(stampBoardId, stampQty, date, `${castStr} 관람 연동`);
+      const castStr    = buildCastSummary(record);
+      const toastMsg   = applyStampToBoard(stampBoardId, stampQty, date, `${castStr} 관람 연동`);
+      const overflowQty = applyStampToBoard._lastOverflow || 0;
+      applyStampToBoard._lastOverflow = 0;
+      // 메인 이력에 recordId 연결
       const boards2 = getStampBoards();
       const b2 = boards2.find(b => b.id === stampBoardId);
-      if (b2 && b2.history && b2.history.length) {
+      if (b2?.history?.length) {
         b2.history[b2.history.length - 1].recordId = record.id;
         saveStampBoards(boards2);
       }
-      // 오버플로우 대기 중이면 recordId 연결 (새 보드 이력에도 recordId 붙이기 위해)
-      if (_overflowPending) _overflowPending.recordId = record.id;
+      // 폼에서 이미 확인한 오버플로우 → 저장 시 새 카드 즉시 생성 (팝업 없음)
+      if (overflowQty > 0 && _recFormOverflowOK) {
+        _recFormOverflowOK = false;
+        createOverflowBoard(overflowQty, date, `${castStr} 관람 연동`, '', record.id);
+      }
       showToast(toastMsg || '기록이 추가되었습니다');
     } else {
       showToast('기록이 추가되었습니다');
@@ -2971,11 +2982,17 @@ function addStamp() {
   const exchangeMemo= document.getElementById('stamp-exchange-memo')?.value.trim()||'';
   const comment     = document.getElementById('stamp-comment')?.value.trim()||'';
   const finalComment= exchangeMemo ? (comment?`${exchangeMemo} / ${comment}`:exchangeMemo) : comment;
-  const toastMsg    = applyStampToBoard(boardId, qty, date, method, finalComment);
+  const toastMsg = applyStampToBoard(boardId, qty, date, method, finalComment);
   if (!toastMsg) return;
+  const overflow = applyStampToBoard._lastOverflow || 0;
+  applyStampToBoard._lastOverflow = 0;
   closePanel('overlay-add-stamp');
   showToast(toastMsg);
   renderStampBoards(); renderCouponList(); renderHome();
+  // 독립 도장 찍기: 오버플로우 있으면 팝업
+  if (overflow > 0) {
+    setTimeout(() => showStandaloneOverflowConfirm(overflow, date, method, finalComment), 500);
+  }
 }
 
 // 공통 도장 적용
@@ -2998,29 +3015,15 @@ function applyStampToBoard(boardId, qty, date, historyMethod, comment) {
     toastMsg = '★ 아이드 도서카드 완성!';
   }
   saveStampBoards(boards);
-  // 오버플로우: 남은 도장 새 카드에 찍을지 확인
-  if (overflowQty > 0) {
-    setTimeout(() => showStampOverflowConfirm(overflowQty, date, historyMethod, comment), 500);
-  }
+  // overflowQty 반환용 — 호출자가 처리
+  applyStampToBoard._lastOverflow = overflowQty;
   return toastMsg;
 }
 
-// 오버플로우 확인 모달
-let _overflowPending = null;
-function showStampOverflowConfirm(qty, date, method, comment) {
-  _overflowPending = { qty, date, method, comment };
-  const desc = document.getElementById('overflow-desc');
-  if (desc) desc.textContent = `남은 ${qty}개 도장을 새 카드를 만들어 계속 찍을까요?`;
-  openPanel('overlay-stamp-overflow');
-}
-function confirmStampOverflow() {
-  if (!_overflowPending) return;
-  const { qty, date, method, comment, recordId } = _overflowPending;
-  _overflowPending = null;
-  closePanel('overlay-stamp-overflow');
-  // 새 도장판 자동 생성
-  const boards = getStampBoards();
-  const maxNum = boards.reduce((max, b) => { const n=parseInt(b.name); return (!isNaN(n)&&n>max)?n:max; }, 0);
+// ── 새 도장판 생성 헬퍼 (오버플로우/직접 생성 공통) ──────────────
+function createOverflowBoard(qty, date, method, comment, recordId) {
+  const boards  = getStampBoards();
+  const maxNum  = boards.reduce((max, b) => { const n=parseInt(b.name); return (!isNaN(n)&&n>max)?n:max; }, 0);
   const newBoard = {
     id: uuid(), name: String(maxNum + 1), totalSlots: 7,
     milestones: [
@@ -3032,7 +3035,7 @@ function confirmStampOverflow() {
   boards.push(newBoard);
   saveStampBoards(boards);
   applyStampToBoard(newBoard.id, qty, date, method, comment);
-  // 새 보드 이력에도 recordId 연결 → 예매 삭제 시 같이 제거됨
+  // recordId 연결 (예매 삭제 시 같이 제거)
   if (recordId) {
     const bds = getStampBoards();
     const nb  = bds.find(b => b.id === newBoard.id);
@@ -3042,8 +3045,61 @@ function confirmStampOverflow() {
     }
   }
   showToast(`[🎫 ${newBoard.name}번 카드] 새로 시작 — ${qty}개 도장 추가!`);
-  renderStampBoards(); renderCouponList(); renderHome();
-  populateStampSelect();
+  renderStampBoards(); renderCouponList(); renderHome(); populateStampSelect();
+  return newBoard;
+}
+
+// ── 기록 폼에서 오버플로우 체크 (도장판 선택/수량 변경 시) ─────────
+let _recFormOverflowOK = false; // 폼에서 이미 확인한 경우
+
+function checkRecFormOverflow() {
+  const boardId = document.getElementById('rec-stamp-board')?.value;
+  const qtyEl   = document.querySelector('input[name="rec-stamp-qty"]:checked');
+  _recFormOverflowOK = false;
+  if (!boardId || !qtyEl) return;
+  const qty    = parseInt(qtyEl.value) || 1;
+  const boards = getStampBoards();
+  const board  = boards.find(b => b.id === boardId);
+  if (!board) return;
+  recalcStampCount(board);
+  const remaining   = board.totalSlots - board.currentCount;
+  if (qty <= remaining) return; // 여유 있음
+  const overflowQty = qty - remaining;
+  // 팝업 버튼 — 폼 컨텍스트
+  const desc = document.getElementById('overflow-desc');
+  if (desc) desc.innerHTML =
+    `<strong>${qty}개</strong> 중 <strong>${remaining > 0 ? remaining : '이미 가득 찼으므로'}</strong>이(가) 현재 카드에,<br>
+     <strong>${overflowQty}개</strong>는 새 카드에 자동 추가됩니다.`;
+  document.getElementById('overflow-ok-btn').onclick = () => {
+    _recFormOverflowOK = true;
+    closePanel('overlay-stamp-overflow');
+  };
+  document.getElementById('overflow-cancel-btn').onclick = () => {
+    _recFormOverflowOK = false;
+    document.getElementById('rec-stamp-board').value = '';
+    onRecStampBoardChange();
+    closePanel('overlay-stamp-overflow');
+  };
+  openPanel('overlay-stamp-overflow');
+}
+
+// ── 독립 도장 찍기(addStamp)에서 오버플로우 팝업 ───────────────────
+let _standaloneOverflow = null;
+
+function showStandaloneOverflowConfirm(qty, date, method, comment) {
+  _standaloneOverflow = { qty, date, method, comment };
+  const desc = document.getElementById('overflow-desc');
+  if (desc) desc.textContent = `남은 ${qty}개 도장을 새 카드를 만들어 계속 찍을까요?`;
+  document.getElementById('overflow-ok-btn').onclick = () => {
+    const p = _standaloneOverflow; _standaloneOverflow = null;
+    closePanel('overlay-stamp-overflow');
+    if (p) { createOverflowBoard(p.qty, p.date, p.method, p.comment, null); }
+  };
+  document.getElementById('overflow-cancel-btn').onclick = () => {
+    _standaloneOverflow = null;
+    closePanel('overlay-stamp-overflow');
+  };
+  openPanel('overlay-stamp-overflow');
 }
 
 // 마일스톤 트리거
