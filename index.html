@@ -2552,7 +2552,7 @@ function queryPairStats() {
   const totalSeen  = list.reduce((s, c) => s + c.seenCount, 0);
 
   const SHORT = { magnus:'매그', abel:'아벨', fredrick:'프레', hagen:'하겐', jasper:'재스', claire:'클레' };
-  const headers = ROLES.map(r => `<th>${SHORT[r.key]||r.label}</th>`).join('') + '<th style="text-align:center;">회차</th><th style="text-align:center;">관람</th>';
+  const headers = ROLES.map(r => `<th>${SHORT[r.key]||r.label}</th>`).join('') + '<th style="text-align:right;">회차</th><th style="text-align:center;">관람</th>';
   const comboKey = c => ROLES.map(r => c.casting[r.key]||'').join('|');
   const rows = list.map((c, idx) => {
     const isGrey = c.scheduleCount === 0;
@@ -2563,7 +2563,7 @@ function queryPairStats() {
       return `<td${isSel ? ' style="color:var(--accent);font-weight:700;"' : ''}>${actor}</td>`;
     }).join('');
     const rowKey = `pair-dates-${idx}`;
-    return `<tr${style} style="cursor:pointer;" onclick="togglePairDates('${rowKey}',this)">${actorCells}<td style="color:var(--text3);text-align:center;">${c.scheduleCount}</td><td style="text-align:center;">${c.seenCount}</td></tr>
+    return `<tr${style} style="cursor:pointer;" onclick="togglePairDates('${rowKey}',this)">${actorCells}<td style="color:var(--border);text-align:right;font-size:10px;">${c.scheduleCount}</td><td style="text-align:center;">${c.seenCount}</td></tr>
 <tr id="${rowKey}" style="display:none;"><td colspan="${ROLES.length+2}" style="padding:6px 4px 8px;background:var(--bg3);">
   ${records.filter(r => ROLES.every(role => (c.casting[role.key]||'') === (r[role.key]||'')))
     .sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time))
@@ -2930,7 +2930,7 @@ function renderStampBoards() {
 
     const m4date = (m4&&m4.notified) ? getStampAchievedDate(b, 4) : null;
     const m7date = (m7&&m7.notified) ? getStampAchievedDate(b, 7) : null;
-    const dateLabel = d => d ? ` <span style="font-size:10px;color:var(--text3);font-weight:400;">(${d.slice(5).replace('-','/')})</span>` : '';
+    const dateLabel = d => { if (!d) return ''; const [,m,dd]=d.split('-'); return ` <span style="font-size:10px;color:var(--text3);font-weight:400;">(${parseInt(m)}/${parseInt(dd)})</span>`; };
     let statusHtml = '';
     if (needChoice)      statusHtml = `<div class="stamp-status-row stamp-status-choice">🎁 혜택을 선택해주세요!</div>`;
     else if (paused)     statusHtml = `<div class="stamp-status-row stamp-status-paused">일시정지 중</div>`;
@@ -3243,7 +3243,7 @@ function renderStampHistoryPanel() {
   // 마일스톤 달성 날짜 섹션
   const msSection = (board.milestones||[]).filter(m=>m.notified).map(m => {
     const d = getStampAchievedDate(board, m.at);
-    const dStr = d ? d.slice(5).replace('-','/') : '?';
+    const dStr = d ? (()=>{ const [,m,dd]=d.split('-'); return `${parseInt(m)}/${parseInt(dd)}`; })() : '?';
     const label = m.at===4
       ? (m.rewardChoice==='coupon' ? '🏷 할인권' : m.rewardChoice==='polaroid' ? '📸 폴라로이드' : '🎁 선택 전')
       : (m.at===7 ? '📸 폴라로이드' : `${m.at}칸`);
