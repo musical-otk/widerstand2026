@@ -128,7 +128,7 @@
   .cal-day-panel-title{font-size:14px;font-weight:700;padding:12px 14px 8px;}
   .cal-session-row{display:flex;align-items:center;gap:8px;padding:9px 14px;border-top:1px solid var(--border);flex-wrap:wrap;}
   .cal-session-time{font-size:12px;font-weight:700;color:var(--text2);min-width:36px;flex-shrink:0;}
-  .cal-session-casting{flex:1;font-size:12px;min-width:0;white-space:nowrap;overflow:hidden;}
+  .cal-session-casting{flex:1;font-size:12px;min-width:0;word-break:keep-all;}
   .cal-session-badge{font-size:10px;padding:2px 7px;border-radius:8px;font-weight:600;white-space:nowrap;flex-shrink:0;}
   .cal-session-badge.done{background:var(--accent-light);color:var(--accent);}
   .cal-session-badge.booked{background:#e6f9ee;color:var(--success);}
@@ -1803,7 +1803,7 @@ function openDetail(id) {
   const d   = new Date(r.date + 'T00:00:00');
   const bookedBadge = r.isBooked === false
     ? '<span style="font-size:11px;color:var(--text3);margin-left:6px;">미정</span>'
-    : '<span style="font-size:11px;color:var(--success);margin-left:6px;">✅ 예매확정</span>';
+    : '<span style="font-size:11px;color:var(--success);margin-left:6px;">✅ 확정</span>';
   document.getElementById('detail-title').innerHTML = `${r.date} (${dow[d.getDay()]}) ${r.time}${bookedBadge}`;
 
   let html = '<div class="casting-display">';
@@ -2381,7 +2381,7 @@ function renderCalDayPanel(ds, daySch, doneSet, bookedSet, records) {
       const isDone   = doneSet.has(key);
       const isBooked = bookedSet.has(key);
       const recs = dayRecords.filter(r => r.time === s.time);
-      const badge = isBooked ? '<span class="cal-session-badge booked">✓ 예매확정</span>' : isDone ? '<span class="cal-session-badge done">✅</span>' : '';
+      const badge = isBooked ? '<span class="cal-session-badge booked">✓ 확정</span>' : isDone ? '<span class="cal-session-badge done">✅</span>' : '';
       const castStr = ROLES.map(r => s[r.key]).filter(Boolean).join(' · ');
       const btn = recs.length === 0
         ? `<button class="cal-session-add" onclick="openAddRecordFromSchedule('${ds}','${s.time}','${JSON.stringify(s).replace(/"/g,'&quot;')}')">+ 기록</button>`
