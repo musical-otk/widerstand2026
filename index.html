@@ -2520,7 +2520,8 @@ function queryPairStats() {
   const totalSched = list.reduce((s, c) => s + c.scheduleCount, 0);
   const totalSeen  = list.reduce((s, c) => s + c.seenCount, 0);
 
-  const headers = ROLES.map(r => `<th>${r.label}</th>`).join('') + '<th style="text-align:center;">총 회차</th><th>관람</th>';
+  const SHORT = { magnus:'매그', abel:'아벨', fredrick:'프레', hagen:'하겐', jasper:'재스', claire:'클레' };
+  const headers = ROLES.map(r => `<th>${SHORT[r.key]||r.label}</th>`).join('') + '<th style="text-align:center;">회차</th><th>관람</th>';
   const rows = list.map(c => {
     const isGrey = c.scheduleCount === 0;
     const style  = isGrey ? ' style="opacity:0.4;"' : '';
@@ -2533,7 +2534,7 @@ function queryPairStats() {
   }).join('');
 
   el.innerHTML = `<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">${list.length}가지 조합 · 스케줄 ${totalSched}회 · 내 관람 ${totalSeen}회</div>
-    <div style="overflow-x:auto;"><table class="stats-table"><tr>${headers}</tr>${rows}</table></div>`;
+    <div style="overflow-x:auto;"><table class="stats-table" style="font-size:11px;"><tr>${headers}</tr>${rows}</table></div>`;
 }
 
 // 하위 호환 (renderStats에서 호출)
