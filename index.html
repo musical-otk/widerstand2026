@@ -280,6 +280,10 @@
   #photo-viewer-img{max-width:100%;max-height:100vh;object-fit:contain;cursor:zoom-in;transition:none;}
   #photo-viewer-img.zoomed{width:100vw;max-width:none;max-height:none;height:auto;cursor:zoom-out;}
   #photo-viewer-close{position:fixed;top:16px;right:16px;z-index:601;background:rgba(0,0,0,0.5);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+  .milestone-divider{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px dashed var(--accent-light);border-bottom:1px dashed var(--accent-light);margin:3px 0;font-size:11px;color:var(--accent);font-weight:600;}
+  .milestone-divider .ms-label{flex:1;}
+  .milestone-divider .ms-change{padding:2px 8px;border-radius:6px;border:1px solid var(--accent);background:none;color:var(--accent);font-size:11px;cursor:pointer;font-family:inherit;}
 </style>
 </head>
 <body>
@@ -2935,8 +2939,8 @@ function renderStampBoards() {
     if (needChoice)      statusHtml = `<div class="stamp-status-row stamp-status-choice">🎁 혜택을 선택해주세요!</div>`;
     else if (paused)     statusHtml = `<div class="stamp-status-row stamp-status-paused">일시정지 중</div>`;
     else if (alldone||m7&&m7.notified) statusHtml = `<div class="stamp-status-row stamp-status-done">📸 폴라로이드 달성!${dateLabel(m7date)}</div>`;
-    else if (m4&&m4.notified&&m4.rewardChoice==='coupon')    statusHtml = `<div class="stamp-status-row" style="display:flex;align-items:center;justify-content:space-between;"><span class="stamp-status-mid">🏷 할인권 수령 완료${dateLabel(m4date)}</span><button class="stamp-menu-btn" onclick="openMilestoneChoice('${b.id}')" title="변경">✏️</button></div>`;
-    else if (m4&&m4.notified&&m4.rewardChoice==='polaroid')  statusHtml = `<div class="stamp-status-row" style="display:flex;align-items:center;justify-content:space-between;"><span class="stamp-status-mid">📸 폴라로이드 수령 완료${dateLabel(m4date)}</span><button class="stamp-menu-btn" onclick="openMilestoneChoice('${b.id}')" title="변경">✏️</button></div>`;
+    else if (m4&&m4.notified&&m4.rewardChoice==='coupon')    statusHtml = `<div class="stamp-status-row stamp-status-mid">🏷 할인권 수령 완료${dateLabel(m4date)}</div>`;
+    else if (m4&&m4.notified&&m4.rewardChoice==='polaroid')  statusHtml = `<div class="stamp-status-row stamp-status-mid">📸 폴라로이드 수령 완료${dateLabel(m4date)}</div>`;
     else if (toNext!==null) statusHtml = `<div class="stamp-status-row stamp-status-next">다음까지 ${toNext}개</div>`;
 
     const marker4 = (4/total*100).toFixed(2);
@@ -2964,6 +2968,7 @@ function renderStampBoards() {
       ${statusHtml}
       <div class="stamp-actions">
         ${needChoice ? `<button class="btn btn-primary btn-sm" style="width:100%;" onclick="openMilestoneChoice('${b.id}')">🎁 혜택 선택하기</button>` : ''}
+        ${(m4&&m4.notified&&m4.rewardChoice) ? `<button class="stamp-history-btn" onclick="openMilestoneChoice('${b.id}')">4칸 혜택 변경</button>` : ''}
         ${(!alldone && !paused && !needChoice) ? `<button class="btn btn-primary btn-sm" style="width:100%;" onclick="openAddStamp('${b.id}')">+ 도장 찍기</button>` : ''}
         <button class="stamp-history-btn" onclick="openStampHistory('${b.id}')">이력 보기</button>
       </div>
@@ -3240,29 +3245,34 @@ function renderStampHistoryPanel() {
   const el = document.getElementById('stamp-history-panel-content');
   if (!sortedH.length) { el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:16px 0;text-align:center;">이력 없음</div>'; return; }
   const dow=['일','월','화','수','목','금','토'];
-  // 마일스톤 달성 날짜 섹션
-  const msSection = (board.milestones||[]).filter(m=>m.notified).map(m => {
-    const d = getStampAchievedDate(board, m.at);
-    const dStr = d ? (()=>{ const [,m,dd]=d.split('-'); return `${parseInt(m)}/${parseInt(dd)}`; })() : '?';
-    const label = m.at===4
+  // 마일스톤 달성 인덱스 계산 (누적 카운트 기준)
+  const milestoneIdxMap = {};
+  let cumul = 0;
+  sortedH.forEach((h, i) => {
+    const prev = cumul;
+    cumul += (h.qty || 1);
+    (board.milestones||[]).forEach(m => {
+      if (prev < m.at && cumul >= m.at && m.notified) milestoneIdxMap[m.at] = i;
+    });
+  });
+  function msDivider(at) {
+    const m = (board.milestones||[]).find(x=>x.at===at);
+    if (!m || !m.notified) return '';
+    const label = at===4
       ? (m.rewardChoice==='coupon' ? '🏷 할인권' : m.rewardChoice==='polaroid' ? '📸 폴라로이드' : '🎁 선택 전')
-      : (m.at===7 ? '📸 폴라로이드' : `${m.at}칸`);
-    const changeBtn = m.at===4 && m.choiceRequired
-      ? `<button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;" onclick="openMilestoneChoice('${boardId}')">변경</button>`
-      : '';
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
-      <div style="font-size:12px;"><span style="color:var(--accent);font-weight:700;">${m.at}칸 달성</span> <span style="color:var(--text3);">${dStr}</span></div>
-      <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:12px;font-weight:600;">${label}</span>${changeBtn}</div>
-    </div>`;
-  }).join('');
-  el.innerHTML = (msSection ? `<div style="margin-bottom:10px;">${msSection}</div>` : '')
-    + '<div class="history-list">' + sortedH.map(h => {
+      : '📸 폴라로이드';
+    const changeBtn = (at===4 && m.choiceRequired)
+      ? `<button class="ms-change" onclick="openMilestoneChoice('${boardId}')">변경</button>` : '';
+    return `<div class="milestone-divider"><span class="ms-label">${at}칸 달성 · ${label}</span>${changeBtn}</div>`;
+  }
+  el.innerHTML = '<div class="history-list">' + sortedH.map((h, i) => {
     const origIdx = board.history.indexOf(h);
     const d = new Date(h.date+'T00:00:00');
     const dateStr = `${h.date.slice(5).replace('-','.')}(${dow[d.getDay()]})`;
     const baseMethod = (h.method||'').replace(/\s*×\d+$/,'');
     const qty = h.qty||1;
     const qtyLabel = qty>1?` ×${qty}`:'';
+    const msAfter = Object.entries(milestoneIdxMap).filter(([,idx])=>idx===i).map(([at])=>msDivider(Number(at))).join('');
     return `<div class="history-item">
       <div style="flex:1;">
         <div style="font-size:12px;color:var(--text2);font-weight:500;">${dateStr}</div>
@@ -3271,7 +3281,7 @@ function renderStampHistoryPanel() {
       <span class="history-type" style="font-size:11px;">${baseMethod}${qtyLabel}</span>
       ${!h.recordId?`<button class="btn-icon" style="font-size:12px;color:var(--text3);margin-left:2px;" onclick="editStampHistoryItem('${boardId}',${origIdx})">📝</button>`:''}
       <button class="btn-icon" style="font-size:12px;color:var(--danger);margin-left:4px;" onclick="deleteStampHistoryItemFromPanel('${boardId}',${origIdx})">✕</button>
-    </div>`;
+    </div>${msAfter}`;
   }).join('') + '</div>';
 }
 
