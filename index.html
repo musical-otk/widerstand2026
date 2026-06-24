@@ -2553,7 +2553,8 @@ function queryPairStats() {
 
   const SHORT = { magnus:'매그', abel:'아벨', fredrick:'프레', hagen:'하겐', jasper:'재스', claire:'클레' };
   const headers = ROLES.map(r => `<th>${SHORT[r.key]||r.label}</th>`).join('') + '<th style="text-align:center;">회차</th><th style="text-align:center;">관람</th>';
-  const rows = list.map(c => {
+  const comboKey = c => ROLES.map(r => c.casting[r.key]||'').join('|');
+  const rows = list.map((c, idx) => {
     const isGrey = c.scheduleCount === 0;
     const style  = isGrey ? ' style="opacity:0.4;"' : '';
     const actorCells = ROLES.map(r => {
@@ -2561,11 +2562,26 @@ function queryPairStats() {
       const isSel = pairSelectedActors[r.key] === actor;
       return `<td${isSel ? ' style="color:var(--accent);font-weight:700;"' : ''}>${actor}</td>`;
     }).join('');
-    return `<tr${style}>${actorCells}<td style="color:var(--text3)">${c.scheduleCount}</td><td>${c.seenCount}</td></tr>`;
+    const rowKey = `pair-dates-${idx}`;
+    return `<tr${style} style="cursor:pointer;" onclick="togglePairDates('${rowKey}',this)">${actorCells}<td style="color:var(--text3);text-align:center;">${c.scheduleCount}</td><td style="text-align:center;">${c.seenCount}</td></tr>
+<tr id="${rowKey}" style="display:none;"><td colspan="${ROLES.length+2}" style="padding:6px 4px 8px;background:var(--bg3);">
+  ${records.filter(r => ROLES.every(role => (c.casting[role.key]||'') === (r[role.key]||'')))
+    .sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time))
+    .map(r=>{const dow=['일','월','화','수','목','금','토'];const d=new Date(r.date+'T00:00:00');
+      return `<div style="font-size:11px;color:var(--text2);padding:2px 0;">${r.date.slice(5).replace('-','/')}(${dow[d.getDay()]}) ${r.time}</div>`;}).join('') || '<div style="font-size:11px;color:var(--text3);padding:2px 0;">관람 기록 없음</div>'}
+</td></tr>`;
   }).join('');
 
   el.innerHTML = `<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">${list.length}가지 조합 · 스케줄 ${totalSched}회 · 내 관람 ${totalSeen}회</div>
     <div style="overflow-x:auto;"><table class="stats-table" style="font-size:11px;"><tr>${headers}</tr>${rows}</table></div>`;
+}
+
+function togglePairDates(rowId, tr) {
+  const el = document.getElementById(rowId);
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : '';
+  tr.style.background = open ? '' : 'var(--accent-light)';
 }
 
 // 하위 호환 (renderStats에서 호출)
@@ -2783,7 +2799,7 @@ function renderCouponAllHistory() {
       const item = COUPON_ITEMS.find(i => i.key === key);
       if (!item) return;
       const date = getStampAchievedDate(b, m.at);
-      allRows.push({ date, type:'획득', key, short:item.short, comment:`[🎫 ${b.name}] ${m.at}칸 달성`, isMilestone:true, qty:1, originalIdx:-1, rowType:'milestone' });
+      allRows.push({ date, type:'획득', key, short:item.short, comment:`[🎫 ${b.name}] ${m.at}칸 달성`, isMilestone:true, boardId:b.id, qty:1, originalIdx:-1, rowType:'milestone' });
     });
   });
   // 관람 기록 사용분
@@ -2811,7 +2827,8 @@ function renderCouponAllHistory() {
     const d50  = h.key === 'discount50' ? delta : '';
     const badge = h.isMilestone ? '<span class="hist-milestone-badge">달성</span>' : '';
     const memo  = `${h.comment||''}${badge}`;
-    const delBtn = h.rowType === 'manual' ? `<button class="hist-del-btn" onclick="deleteCouponHistoryRow('${h.key}',${h.originalIdx})">✕</button>` : '';
+    const changeBtn = h.isMilestone && h.boardId ? `<button class="hist-del-btn" style="color:var(--accent);" onclick="openMilestoneChoice('${h.boardId}')">✏</button>` : '';
+    const delBtn = h.rowType === 'manual' ? `<button class="hist-del-btn" onclick="deleteCouponHistoryRow('${h.key}',${h.originalIdx})">✕</button>` : changeBtn;
     return `<tr>
       <td style="text-align:left;white-space:nowrap;">${dateStr}</td>
       <td>${typeHtml}</td>
@@ -2911,13 +2928,15 @@ function renderStampBoards() {
     const nextMs  = [...milestones].sort((a,z)=>a.at-z.at).find(m=>cur<m.at);
     const toNext  = nextMs ? nextMs.at-cur : null;
 
+    const m4date = (m4&&m4.notified) ? getStampAchievedDate(b, 4) : null;
+    const m7date = (m7&&m7.notified) ? getStampAchievedDate(b, 7) : null;
+    const dateLabel = d => d ? ` <span style="font-size:10px;color:var(--text3);font-weight:400;">(${d.slice(5).replace('-','/')})</span>` : '';
     let statusHtml = '';
     if (needChoice)      statusHtml = `<div class="stamp-status-row stamp-status-choice">🎁 혜택을 선택해주세요!</div>`;
     else if (paused)     statusHtml = `<div class="stamp-status-row stamp-status-paused">일시정지 중</div>`;
-    else if (alldone)    statusHtml = `<div class="stamp-status-row stamp-status-done">📸 폴라로이드 달성!</div>`;
-    else if (m7&&m7.notified) statusHtml = `<div class="stamp-status-row stamp-status-done">📸 폴라로이드 달성!</div>`;
-    else if (m4&&m4.notified&&m4.rewardChoice==='coupon') statusHtml = `<div class="stamp-status-row stamp-status-mid">🏷 할인권 수령 완료</div>`;
-    else if (m4&&m4.notified&&m4.rewardChoice==='polaroid') statusHtml = `<div class="stamp-status-row stamp-status-mid">📸 폴라로이드 수령 완료</div>`;
+    else if (alldone||m7&&m7.notified) statusHtml = `<div class="stamp-status-row stamp-status-done">📸 폴라로이드 달성!${dateLabel(m7date)}</div>`;
+    else if (m4&&m4.notified&&m4.rewardChoice==='coupon')    statusHtml = `<div class="stamp-status-row" style="display:flex;align-items:center;justify-content:space-between;"><span class="stamp-status-mid">🏷 할인권 수령 완료${dateLabel(m4date)}</span><button class="stamp-menu-btn" onclick="openMilestoneChoice('${b.id}')" title="변경">✏️</button></div>`;
+    else if (m4&&m4.notified&&m4.rewardChoice==='polaroid')  statusHtml = `<div class="stamp-status-row" style="display:flex;align-items:center;justify-content:space-between;"><span class="stamp-status-mid">📸 폴라로이드 수령 완료${dateLabel(m4date)}</span><button class="stamp-menu-btn" onclick="openMilestoneChoice('${b.id}')" title="변경">✏️</button></div>`;
     else if (toNext!==null) statusHtml = `<div class="stamp-status-row stamp-status-next">다음까지 ${toNext}개</div>`;
 
     const marker4 = (4/total*100).toFixed(2);
@@ -3172,7 +3191,7 @@ function chooseMilestoneReward(choice) {
   if (!m4) return;
   m4.notified     = true;
   m4.rewardChoice = choice;
-  if (choice === 'polaroid') m4.couponKey = null;
+  m4.couponKey    = (choice === 'polaroid') ? null : 'discount50'; // 변경 시 couponKey도 재설정
   saveStampBoards(boards);
   closePanel('overlay-milestone-choice');
   renderStampBoards(); renderCouponList(); renderHome();
@@ -3221,7 +3240,23 @@ function renderStampHistoryPanel() {
   const el = document.getElementById('stamp-history-panel-content');
   if (!sortedH.length) { el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:16px 0;text-align:center;">이력 없음</div>'; return; }
   const dow=['일','월','화','수','목','금','토'];
-  el.innerHTML = '<div class="history-list">' + sortedH.map(h => {
+  // 마일스톤 달성 날짜 섹션
+  const msSection = (board.milestones||[]).filter(m=>m.notified).map(m => {
+    const d = getStampAchievedDate(board, m.at);
+    const dStr = d ? d.slice(5).replace('-','/') : '?';
+    const label = m.at===4
+      ? (m.rewardChoice==='coupon' ? '🏷 할인권' : m.rewardChoice==='polaroid' ? '📸 폴라로이드' : '🎁 선택 전')
+      : (m.at===7 ? '📸 폴라로이드' : `${m.at}칸`);
+    const changeBtn = m.at===4 && m.choiceRequired
+      ? `<button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;" onclick="openMilestoneChoice('${boardId}')">변경</button>`
+      : '';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:12px;"><span style="color:var(--accent);font-weight:700;">${m.at}칸 달성</span> <span style="color:var(--text3);">${dStr}</span></div>
+      <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:12px;font-weight:600;">${label}</span>${changeBtn}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = (msSection ? `<div style="margin-bottom:10px;">${msSection}</div>` : '')
+    + '<div class="history-list">' + sortedH.map(h => {
     const origIdx = board.history.indexOf(h);
     const d = new Date(h.date+'T00:00:00');
     const dateStr = `${h.date.slice(5).replace('-','.')}(${dow[d.getDay()]})`;
