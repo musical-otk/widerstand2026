@@ -137,7 +137,7 @@
 
   /* STATS */
   .stats-table{width:100%;border-collapse:collapse;font-size:13px;}
-  .stats-table th{text-align:left;color:var(--text3);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--border);}
+  .stats-table th{color:var(--text3);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--border);}
   .stats-table td{padding:8px;border-bottom:1px solid var(--border);}
   .stats-table td:last-child{text-align:right;font-weight:700;color:var(--accent);}
   .role-section-title{font-size:12px;font-weight:700;color:var(--text3);padding:6px 8px 2px;}
@@ -217,7 +217,7 @@
   .hist-del-btn{background:none;border:none;cursor:pointer;color:var(--danger);font-size:11px;padding:1px 3px;opacity:0.65;}
   .hist-milestone-badge{display:inline-block;font-size:10px;color:var(--accent);background:var(--accent-light);border-radius:4px;padding:1px 5px;margin-left:4px;}
   .history-list{margin-top:8px;}
-  .history-item{font-size:12px;color:var(--text2);padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .history-item{padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;}
   .history-item:last-child{border-bottom:none;}
   .history-type{color:var(--text3);white-space:nowrap;}
 
@@ -804,21 +804,17 @@
 
 <!-- ===== MILESTONE CHOICE PANEL (4칸) ===== -->
 <div class="overlay" id="overlay-milestone-choice">
-  <div class="panel">
+  <div class="panel" style="padding:16px 16px 28px;">
     <div class="panel-handle"></div>
-    <div style="text-align:center;padding:8px 0 20px;">
-      <div style="font-size:36px;margin-bottom:8px;">🎉</div>
-      <div style="font-size:20px;font-weight:700;margin-bottom:8px;">4칸 달성!</div>
-      <p style="font-size:14px;color:var(--text2);">받을 혜택을 선택해주세요</p>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:12px;">
-      <button class="btn btn-primary" style="padding:16px;line-height:1.6;" onclick="chooseMilestoneReward('coupon')">
-        🏷 50% 실물 할인권 수령<br>
-        <span style="font-size:12px;font-weight:400;opacity:0.85;">할인권 잔여 +1</span>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:12px;">🎉 4칸 달성 · 혜택 선택</div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="chooseMilestoneReward('coupon')"
+        style="flex:1;padding:12px 8px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg3);color:var(--text1);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
+        🏷 할인권
       </button>
-      <button class="btn btn-outline" style="padding:16px;line-height:1.6;" onclick="chooseMilestoneReward('polaroid')">
-        📸 폴라로이드 수령 (랜덤)<br>
-        <span style="font-size:12px;font-weight:400;color:var(--text3);">페어 또는 개인 랜덤 1매</span>
+      <button onclick="chooseMilestoneReward('polaroid')"
+        style="flex:1;padding:12px 8px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg3);color:var(--text1);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
+        📸 폴라로이드
       </button>
     </div>
   </div>
@@ -1737,22 +1733,53 @@ function saveRecord() {
     const stampChanged = stampBoardId !== prevBoardId || stampQty !== prevQty || (prevBoardId && date !== prevRecord.date);
     if (stampChanged) {
       const boards = getStampBoards();
-      if (prevBoardId) {
+      // ① 목적 보드의 m4 마일스톤 상태 저장 (제거→재추가 사이 revalidate 오발동 방지)
+      const destM4Saved = (() => {
+        if (!stampBoardId) return null;
+        const db = boards.find(b => b.id === stampBoardId);
+        const m4 = db?.milestones?.find(m => m.at === 4);
+        return m4 ? { notified: m4.notified, rewardChoice: m4.rewardChoice, couponKey: m4.couponKey } : null;
+      })();
+      // ② 이 record와 연결된 도장을 모든 보드에서 제거 (오버플로우 보드 포함)
+      let removedByRecordId = false;
+      boards.forEach(board => {
+        if (!board.history) return;
+        const before = board.history.length;
+        board.history = board.history.filter(h => h.recordId !== editId);
+        if (board.history.length !== before) {
+          recalcStampCount(board);
+          if (board.id !== stampBoardId) revalidateMilestones(board); // 목적 보드는 나중에 복원
+          removedByRecordId = true;
+        }
+      });
+      // Fallback: recordId 없이 저장된 경우 prevBoardId에서 날짜 기준 제거
+      if (!removedByRecordId && prevBoardId) {
         const pb = boards.find(b => b.id === prevBoardId);
-        if (pb && pb.history) {
+        if (pb?.history) {
           const idx = pb.history.map((h,i)=>({h,i})).reverse()
-            .find(({h}) => h.recordId === editId || (h.date === prevRecord.date && h.method?.includes('관람')));
-          if (idx !== undefined) pb.history.splice(idx.i, 1);
-          recalcStampCount(pb); revalidateMilestones(pb);
+            .find(({h}) => h.date === prevRecord.date && h.method?.includes('관람'));
+          if (idx !== undefined) {
+            pb.history.splice(idx.i, 1);
+            recalcStampCount(pb);
+            if (prevBoardId !== stampBoardId) revalidateMilestones(pb);
+          }
         }
       }
+      // ③ 목적 보드 m4 상태 복원
+      if (stampBoardId && destM4Saved) {
+        const db = boards.find(b => b.id === stampBoardId);
+        const m4 = db?.milestones?.find(m => m.at === 4);
+        if (m4) { m4.notified = destM4Saved.notified; m4.rewardChoice = destM4Saved.rewardChoice; m4.couponKey = destM4Saved.couponKey; }
+      }
+      // ④ 목적 보드에 새 도장 추가
+      let editOverflowQty = 0;
       if (stampBoardId) {
         const nb = boards.find(b => b.id === stampBoardId);
         if (nb) {
-          if (prevBoardId === stampBoardId) revalidateMilestones(nb);
           recalcStampCount(nb);
           const remaining = nb.totalSlots - nb.currentCount;
           const actualQty = remaining > 0 ? Math.min(stampQty, remaining) : 0;
+          editOverflowQty = stampQty - actualQty;
           if (actualQty > 0) {
             if (!nb.history) nb.history = [];
             const castStr = buildCastSummary(record);
@@ -1763,6 +1790,11 @@ function saveRecord() {
         }
       }
       saveStampBoards(boards);
+      // ⑤ 오버플로우 → 새 카드 생성
+      if (editOverflowQty > 0) {
+        const castStr = buildCastSummary(record);
+        createOverflowBoard(editOverflowQty, date, `${castStr} 관람 연동`, '', editId);
+      }
     }
     showToast('기록이 수정되었습니다');
   } else {
@@ -1779,8 +1811,8 @@ function saveRecord() {
         b2.history[b2.history.length - 1].recordId = record.id;
         saveStampBoards(boards2);
       }
-      // 폼에서 이미 확인한 오버플로우 → 저장 시 새 카드 즉시 생성 (팝업 없음)
-      if (overflowQty > 0 && _recFormOverflowOK) {
+      // 오버플로우 → 새 카드 즉시 생성 (팝업에서 이미 안내, cancel 시 board 해제됨)
+      if (overflowQty > 0) {
         _recFormOverflowOK = false;
         createOverflowBoard(overflowQty, date, `${castStr} 관람 연동`, '', record.id);
       }
@@ -1836,22 +1868,31 @@ function openDetail(id) {
     html += `<div class="detail-field"><div class="detail-field-label">티켓 가격</div><div class="detail-field-value">₩${r.price.toLocaleString()}${dLabel}</div></div>`;
   }
 
-  if (r.stampBoardId) {
+  {
+    // 이 record와 연결된 모든 보드 찾기 (메인 + 오버플로우)
     const boards = getStampBoards();
-    const board  = boards.find(b => b.id === r.stampBoardId);
-    if (board) {
-      recalcStampCount(board);
-      const sorted = [...(board.history||[])].sort((a,z) => a.date.localeCompare(z.date));
-      let cumulative = 0, seq = null;
-      for (const h of sorted) {
-        const isThis = h.recordId ? h.recordId === r.id : h.date === r.date;
-        if (isThis && seq === null) seq = cumulative + 1;
-        cumulative += (h.qty ?? 1);
-      }
-      if (seq === null) seq = board.currentCount;
-      const qty = r.stampQty || 1;
-      const seqLabel = qty > 1 ? `[${seq}~${seq+qty-1}번째 도장] ×${qty}` : `${seq}번째 도장`;
-      html += `<div class="detail-field"><div class="detail-field-label">아이드 도서카드</div><div class="detail-field-value">[🎫 ${board.name}] ${seqLabel}</div></div>`;
+    const linked = boards.filter(b => (b.history||[]).some(h => h.recordId === r.id));
+    // recordId 없이 저장된 경우 fallback: stampBoardId로 찾기
+    if (linked.length === 0 && r.stampBoardId) {
+      const fb = boards.find(b => b.id === r.stampBoardId);
+      if (fb) linked.push(fb);
+    }
+    if (linked.length > 0) {
+      const parts = linked
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric:true}))
+        .map(board => {
+          const sorted = [...(board.history||[])].sort((a,z) => a.date.localeCompare(z.date));
+          let cumul = 0, seq = null, qty = 1;
+          for (const h of sorted) {
+            const isThis = h.recordId === r.id || (!h.recordId && h.date === r.date);
+            if (isThis && seq === null) { seq = cumul + 1; qty = h.qty ?? 1; }
+            cumul += (h.qty ?? 1);
+          }
+          if (seq === null) return null;
+          const range = qty > 1 ? `[${seq}~${seq+qty-1}]` : `[${seq}]`;
+          return `[🎫 ${board.name}] ${range}`;
+        }).filter(Boolean).join('  ');
+      if (parts) html += `<div class="detail-field"><div class="detail-field-label">아이드 도서카드</div><div class="detail-field-value">${parts}</div></div>`;
     }
   }
 
@@ -2567,12 +2608,26 @@ function queryPairStats() {
       return `<td${isSel ? ' style="color:var(--accent);font-weight:700;"' : ''}>${actor}</td>`;
     }).join('');
     const rowKey = `pair-dates-${idx}`;
+    // 이 조합의 스케줄 전체 회차 목록
+    const comboSchedules = schedule.filter(s => ROLES.every(r => (c.casting[r.key]||'') === (s[r.key]||'')))
+      .sort((a,b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+    // 관람한 날짜+시간 Set
+    const seenKeys = new Set(records
+      .filter(r => ROLES.every(role => (c.casting[role.key]||'') === (r[role.key]||'')))
+      .map(r => r.date + '-' + r.time));
+    const dateRows = comboSchedules.map(s => {
+      const dow=['일','월','화','수','목','금','토'];
+      const d = new Date(s.date+'T00:00:00');
+      const [,m,dd] = s.date.split('-');
+      const dateStr = `${parseInt(m)}/${parseInt(dd)}(${dow[d.getDay()]}) ${s.time}`;
+      const seen = seenKeys.has(s.date+'-'+s.time);
+      return seen
+        ? `<span style="font-size:11px;font-weight:700;color:var(--text1);">${dateStr}</span>`
+        : `<span style="font-size:11px;color:var(--text3);">${dateStr}</span>`;
+    }).join('<span style="color:var(--border);margin:0 4px;">·</span>');
     return `<tr${style} style="cursor:pointer;" onclick="togglePairDates('${rowKey}',this)">${actorCells}<td style="color:var(--border);text-align:right;font-size:10px;">${c.scheduleCount}</td><td style="text-align:center;">${c.seenCount}</td></tr>
-<tr id="${rowKey}" style="display:none;"><td colspan="${ROLES.length+2}" style="padding:6px 4px 8px;background:var(--bg3);">
-  ${records.filter(r => ROLES.every(role => (c.casting[role.key]||'') === (r[role.key]||'')))
-    .sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time))
-    .map(r=>{const dow=['일','월','화','수','목','금','토'];const d=new Date(r.date+'T00:00:00');
-      return `<div style="font-size:11px;color:var(--text2);padding:2px 0;">${r.date.slice(5).replace('-','/')}(${dow[d.getDay()]}) ${r.time}</div>`;}).join('') || '<div style="font-size:11px;color:var(--text3);padding:2px 0;">관람 기록 없음</div>'}
+<tr id="${rowKey}" style="display:none;"><td colspan="${ROLES.length+2}" style="padding:8px 6px 10px;background:var(--bg);">
+  <div style="display:flex;flex-wrap:wrap;gap:4px 0;line-height:1.8;">${dateRows || '<span style="font-size:11px;color:var(--text3);">스케줄 없음</span>'}</div>
 </td></tr>`;
   }).join('');
 
@@ -2831,8 +2886,7 @@ function renderCouponAllHistory() {
     const d50  = h.key === 'discount50' ? delta : '';
     const badge = h.isMilestone ? '<span class="hist-milestone-badge">달성</span>' : '';
     const memo  = `${h.comment||''}${badge}`;
-    const changeBtn = h.isMilestone && h.boardId ? `<button class="hist-del-btn" style="color:var(--accent);" onclick="openMilestoneChoice('${h.boardId}')">✏</button>` : '';
-    const delBtn = h.rowType === 'manual' ? `<button class="hist-del-btn" onclick="deleteCouponHistoryRow('${h.key}',${h.originalIdx})">✕</button>` : changeBtn;
+    const delBtn = h.rowType === 'manual' ? `<button class="hist-del-btn" onclick="deleteCouponHistoryRow('${h.key}',${h.originalIdx})">✕</button>` : '';
     return `<tr>
       <td style="text-align:left;white-space:nowrap;">${dateStr}</td>
       <td>${typeHtml}</td>
@@ -2968,9 +3022,9 @@ function renderStampBoards() {
       ${statusHtml}
       <div class="stamp-actions">
         ${needChoice ? `<button class="btn btn-primary btn-sm" style="width:100%;" onclick="openMilestoneChoice('${b.id}')">🎁 혜택 선택하기</button>` : ''}
-        ${(m4&&m4.notified&&m4.rewardChoice) ? `<button class="stamp-history-btn" onclick="openMilestoneChoice('${b.id}')">4칸 혜택 변경</button>` : ''}
         ${(!alldone && !paused && !needChoice) ? `<button class="btn btn-primary btn-sm" style="width:100%;" onclick="openAddStamp('${b.id}')">+ 도장 찍기</button>` : ''}
         <button class="stamp-history-btn" onclick="openStampHistory('${b.id}')">이력 보기</button>
+        ${(m4&&m4.notified&&m4.rewardChoice) ? `<button class="stamp-history-btn" onclick="openMilestoneChoiceFromHistory('${b.id}')">4칸 혜택 변경</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -3053,6 +3107,7 @@ function addStamp() {
 
 // 공통 도장 적용
 function applyStampToBoard(boardId, qty, date, historyMethod, comment) {
+  applyStampToBoard._lastOverflow = 0; // 항상 초기화
   const boards = getStampBoards();
   const board  = boards.find(b => b.id === boardId);
   if (!board) return null;
@@ -3120,7 +3175,19 @@ function checkRecFormOverflow() {
   const board  = boards.find(b => b.id === boardId);
   if (!board) return;
   recalcStampCount(board);
-  const remaining   = board.totalSlots - board.currentCount;
+  let remaining = board.totalSlots - board.currentCount;
+  // 수정 중이면 이 record의 기존 도장을 빼고 계산 (편집 후 기존 도장이 제거되므로 여유 생김)
+  const _editId = document.getElementById('edit-record-id')?.value;
+  if (_editId) {
+    const _prev = getRecords().find(r => r.id === _editId);
+    if (_prev?.stampBoardId === boardId) remaining += (_prev.stampQty || 1);
+  }
+  if (remaining <= 0) {
+    document.getElementById('rec-stamp-board').value = '';
+    onRecStampBoardChange();
+    showToast('이미 완성된 도장판입니다');
+    return;
+  }
   if (qty <= remaining) return; // 여유 있음
   const overflowQty = qty - remaining;
   // 팝업 버튼 — 폼 컨텍스트
@@ -3172,7 +3239,6 @@ function triggerMilestonesIfNeeded(board, boardId) {
     if (board.currentCount >= m.at && !m.notified) {
       if (m.choiceRequired) {
         // 선택 필요 — notified는 chooseMilestoneReward에서 설정
-        m.notified = false; // 아직 미선택
         setTimeout(() => openMilestoneChoice(boardId), 600);
       } else {
         m.notified = true;
@@ -3186,6 +3252,23 @@ let _pendingMilestoneBoard = null;
 function openMilestoneChoice(boardId) {
   _pendingMilestoneBoard = boardId;
   openPanel('overlay-milestone-choice');
+}
+// 이력 패널에서 호출 시: 이력 패널 먼저 닫고 마일스톤 선택 오픈
+function changeMilestone4(boardId, choice) {
+  const boards = getStampBoards();
+  const board  = boards.find(b => b.id === boardId); if (!board) return;
+  const m4     = board.milestones?.find(m => m.at === 4 && m.choiceRequired); if (!m4) return;
+  m4.rewardChoice = choice;
+  m4.couponKey    = choice === 'polaroid' ? null : 'discount50';
+  m4.notified     = true;
+  saveStampBoards(boards);
+  renderStampHistoryPanel();
+  renderStampBoards(); renderCouponList(); renderHome();
+  showToast(choice === 'coupon' ? '🏷 할인권으로 변경됐습니다' : '📸 폴라로이드로 변경됐습니다');
+}
+function openMilestoneChoiceFromHistory(boardId) {
+  closePanel('overlay-stamp-history');
+  setTimeout(() => openMilestoneChoice(boardId), 250);
 }
 function chooseMilestoneReward(choice) {
   if (!_pendingMilestoneBoard) return;
@@ -3258,12 +3341,18 @@ function renderStampHistoryPanel() {
   function msDivider(at) {
     const m = (board.milestones||[]).find(x=>x.at===at);
     if (!m || !m.notified) return '';
-    const label = at===4
-      ? (m.rewardChoice==='coupon' ? '🏷 할인권' : m.rewardChoice==='polaroid' ? '📸 폴라로이드' : '🎁 선택 전')
-      : '📸 폴라로이드';
-    const changeBtn = (at===4 && m.choiceRequired)
-      ? `<button class="ms-change" onclick="openMilestoneChoice('${boardId}')">변경</button>` : '';
-    return `<div class="milestone-divider"><span class="ms-label">${at}칸 달성 · ${label}</span>${changeBtn}</div>`;
+    // 7칸만 divider 표시 (4칸은 해당 항목 버튼에 표시)
+    if (at === 7) return `<div class="milestone-divider"><span class="ms-label">7칸 달성 · 📸 폴라로이드</span></div>`;
+    return '';
+  }
+  // 4칸 달성 항목 버튼 (해당 이력 항목 옆에 표시)
+  function m4Buttons() {
+    const m4 = (board.milestones||[]).find(x=>x.at===4);
+    if (!m4 || !m4.notified || !m4.choiceRequired) return '';
+    const isCoupon = m4.rewardChoice === 'coupon';
+    const isPolar  = m4.rewardChoice === 'polaroid';
+    return `<button style="padding:3px 7px;border-radius:6px;border:1.5px solid ${isCoupon?'var(--accent)':'var(--border)'};background:${isCoupon?'var(--accent)':'none'};color:${isCoupon?'#fff':'var(--text2)'};font-size:10px;cursor:pointer;font-family:inherit;" onclick="changeMilestone4('${boardId}','coupon')">🏷</button>
+    <button style="padding:3px 7px;border-radius:6px;border:1.5px solid ${isPolar?'var(--accent)':'var(--border)'};background:${isPolar?'var(--accent)':'none'};color:${isPolar?'#fff':'var(--text2)'};font-size:10px;cursor:pointer;font-family:inherit;" onclick="changeMilestone4('${boardId}','polaroid')">📸</button>`;
   }
   el.innerHTML = '<div class="history-list">' + sortedH.map((h, i) => {
     const origIdx = board.history.indexOf(h);
@@ -3273,14 +3362,18 @@ function renderStampHistoryPanel() {
     const qty = h.qty||1;
     const qtyLabel = qty>1?` ×${qty}`:'';
     const msAfter = Object.entries(milestoneIdxMap).filter(([,idx])=>idx===i).map(([at])=>msDivider(Number(at))).join('');
-    return `<div class="history-item">
-      <div style="flex:1;">
-        <div style="font-size:12px;color:var(--text2);font-weight:500;">${dateStr}</div>
-        ${h.comment?`<div class="history-comment">${h.comment}</div>`:''}
+    const is4thMs = milestoneIdxMap[4] === i;
+    return `<div class="history-item" style="align-items:flex-start;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:2px;">${dateStr}</div>
+        <div style="font-size:12px;font-weight:500;color:var(--text2);">${baseMethod}${qtyLabel}</div>
+        ${h.comment?`<div style="font-size:11px;color:var(--text3);margin-top:1px;">${h.comment}</div>`:''}
       </div>
-      <span class="history-type" style="font-size:11px;">${baseMethod}${qtyLabel}</span>
-      ${!h.recordId?`<button class="btn-icon" style="font-size:12px;color:var(--text3);margin-left:2px;" onclick="editStampHistoryItem('${boardId}',${origIdx})">📝</button>`:''}
-      <button class="btn-icon" style="font-size:12px;color:var(--danger);margin-left:4px;" onclick="deleteStampHistoryItemFromPanel('${boardId}',${origIdx})">✕</button>
+      <div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px;align-items:center;">
+        ${is4thMs ? m4Buttons() : ''}
+        ${!h.recordId?`<button class="btn-icon" style="font-size:12px;color:var(--text3);" onclick="editStampHistoryItem('${boardId}',${origIdx})">📝</button>`:''}
+        <button class="btn-icon" style="font-size:12px;color:var(--danger);" onclick="deleteStampHistoryItemFromPanel('${boardId}',${origIdx})">✕</button>
+      </div>
     </div>${msAfter}`;
   }).join('') + '</div>';
 }
