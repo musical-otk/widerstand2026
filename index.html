@@ -128,7 +128,7 @@
   .cal-day-panel-title{font-size:14px;font-weight:700;padding:12px 14px 8px;}
   .cal-session-row{display:flex;align-items:center;gap:8px;padding:9px 14px;border-top:1px solid var(--border);flex-wrap:wrap;}
   .cal-session-time{font-size:12px;font-weight:700;color:var(--text2);min-width:36px;flex-shrink:0;}
-  .cal-session-casting{flex:1;font-size:12px;min-width:0;}
+  .cal-session-casting{flex:1;font-size:12px;min-width:0;white-space:nowrap;overflow:hidden;}
   .cal-session-badge{font-size:10px;padding:2px 7px;border-radius:8px;font-weight:600;white-space:nowrap;flex-shrink:0;}
   .cal-session-badge.done{background:var(--accent-light);color:var(--accent);}
   .cal-session-badge.booked{background:#e6f9ee;color:var(--success);}
@@ -430,6 +430,7 @@
         <span class="cal-role-sep">·</span>
         <button class="cal-role-tab" data-role="claire"   onclick="selectPairRole('claire',this)">클레어</button>
       </div>
+      <div style="font-size:11px;color:var(--text3);text-align:center;margin:4px 0 6px;">배역 탭을 눌러 배우 선택 (최소 2명)</div>
       <div id="pair-actor-chips" style="display:none;margin-bottom:10px;"></div>
       <button class="btn btn-primary" style="width:100%;margin-bottom:14px;" onclick="queryPairStats()">조회</button>
       <div id="stats-pairs-result"></div>
@@ -932,7 +933,7 @@
 <!-- ===== PHOTO VIEWER ===== -->
 <div id="photo-viewer">
   <button id="photo-viewer-close" onclick="closePhotoViewer()">✕</button>
-  <img id="photo-viewer-img" onclick="togglePhotoZoom()" alt="사진">
+  <img id="photo-viewer-img" ondblclick="togglePhotoZoom()" alt="사진">
 </div>
 
 <!-- ===== EXPORT OPTIONS PANEL ===== -->
@@ -1030,24 +1031,13 @@ async function dbSaveAllPhotos(photos) {
   });
 }
 
-// 이미지 압축 (최대 1080px, JPEG 0.82)
+// 원본 그대로 저장 (내역서 등 텍스트 포함 이미지 품질 보존)
 function compressImage(file) {
   return new Promise(resolve => {
-    const canvas = document.createElement('canvas');
-    const img    = new Image();
-    const url    = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const MAX = 1080;
-      let w = img.width, h = img.height;
-      if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
-      else if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL('image/jpeg', 0.82));
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
-    img.src = url;
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
   });
 }
 
@@ -1106,6 +1096,8 @@ function openPhotoViewer(src) {
   const i = document.getElementById('photo-viewer-img');
   if (!v || !i) return;
   i.src = src; i.className = '';
+  v.style.alignItems = 'center';
+  v.style.justifyContent = 'center';
   v.classList.add('open');
   _photoViewerOpen = true;
   history.pushState({ photoViewer: true }, '');
@@ -1119,8 +1111,14 @@ function closePhotoViewer() {
 }
 function togglePhotoZoom() {
   const i = document.getElementById('photo-viewer-img');
-  if (!i) return;
+  const v = document.getElementById('photo-viewer');
+  if (!i || !v) return;
   i.classList.toggle('zoomed');
+  const isZoomed = i.classList.contains('zoomed');
+  // 줌 시: 상단 정렬 + 세로 스크롤 / 기본: 중앙 정렬
+  v.style.alignItems     = isZoomed ? 'flex-start' : 'center';
+  v.style.justifyContent = isZoomed ? 'flex-start' : 'center';
+  if (isZoomed) v.scrollTop = 0;
 }
 window.addEventListener('popstate', () => {
   if (_photoViewerOpen) {
@@ -1871,36 +1869,63 @@ function buildMiniSeat(floor, rowKey, num) {
   if (!floor || !rowKey) return '';
   const plan = SEAT_PLAN[floor];
   if (!plan) return '';
-  const C = 10, GAP = 1, ZGAP = 4;
+  // 히트맵과 동일한 정렬 상수
+  const C = 9, G = 1, ZG = 11;
+  const MAX = floor === '1층' ? { l:4, m:12, r:4 } : { l:5, m:9, r:4 };
+  const stdW = MAX.l*(C+G) + ZG + MAX.m*(C+G) + ZG + MAX.r*(C+G);
+  const seatNum = parseInt(num);
+
+  function mkCell(row, n, invis) {
+    const s = `width:${C}px;height:${C}px;margin-right:${G}px;flex-shrink:0;border-radius:2px;`;
+    if (invis) return `<div style="${s}background:transparent;border:none;"></div>`;
+    const hl = (row === rowKey && n === seatNum);
+    return `<div style="${s}background:${hl?'var(--accent)':'var(--bg3)'};border:1px solid ${hl?'var(--accent)':'var(--border)'};${hl?'box-shadow:0 0 3px var(--accent);':''}"></div>`;
+  }
+  function mkZone(row, range, maxLen, padLeft) {
+    const count = range ? (range[1]-range[0]+1) : 0;
+    const pad   = maxLen - count;
+    let h = '';
+    if (padLeft) {
+      for (let i=0;i<pad;i++) h += mkCell(row, null, true);
+      if (range) for (let n=range[0];n<=range[1];n++) h += mkCell(row, n, false);
+    } else {
+      if (range) for (let n=range[0];n<=range[1];n++) h += mkCell(row, n, false);
+      for (let i=0;i<pad;i++) h += mkCell(row, null, true);
+    }
+    return h;
+  }
 
   let html = '<div style="overflow-x:auto;margin:8px 0;"><div style="display:flex;flex-direction:column;gap:2px;width:max-content;margin:0 auto;">';
+  let prevRow = null;
   plan.rows.forEach(r => {
-    if (plan.gapAfter && r === plan.rows[plan.rows.indexOf(plan.gapAfter) + 1] && plan.gapAfter) {
-      html += '<div style="height:4px;"></div>';
-    }
+    if (plan.gapAfter && prevRow === plan.gapAfter) html += '<div style="height:3px;"></div>';
+    prevRow = r;
     const cfg = plan.def[r];
     if (!cfg) return;
     const isTarget = r === rowKey;
-    html += '<div style="display:flex;align-items:center;gap:' + GAP + 'px;">';
-    // 행 레이블
-    html += `<div style="width:16px;font-size:9px;color:${isTarget?'var(--accent)':'var(--text3)'};text-align:center;font-weight:${isTarget?'700':'400'};flex-shrink:0;">${r}</div>`;
-    html += `<div style="width:${ZGAP}px;flex-shrink:0;"></div>`;
+    const lbl = `<div style="width:14px;font-size:8px;color:${isTarget?'var(--accent)':'var(--text3)'};text-align:center;font-weight:${isTarget?'700':'400'};flex-shrink:0;margin-right:${G}px;">${r}</div>`;
+    html += `<div style="display:flex;align-items:center;gap:0;">${lbl}`;
+
     if (cfg.merged) {
-      for (let n = cfg.merged[0]; n <= cfg.merged[1]; n++) {
-        const hl = isTarget && n === parseInt(num);
-        html += `<div style="width:${C}px;height:${C}px;border-radius:2px;flex-shrink:0;background:${hl?'var(--accent)':'var(--bg3)'};border:1px solid ${hl?'var(--accent)':'var(--border)'};${hl?'box-shadow:0 0 4px var(--accent);':''}"></div>`;
-      }
+      html += mkCell(r, null, true); // 2층 C-F와 정렬 (1칸 offset)
+      for (let n=cfg.merged[0]; n<=cfg.merged[1]; n++) html += mkCell(r, n, false);
+      const occupiedW = (C+G) + (cfg.merged[1]-cfg.merged[0]+1)*(C+G);
+      const padPx = stdW - occupiedW;
+      if (padPx>0) html += `<div style="width:${padPx}px;flex-shrink:0;"></div>`;
+    } else if (r === 'N' && floor === '1층') {
+      // Ngap = ZG: N9가 M9 바로 아래 정렬
+      for (let n=1;n<=8;n++) html += mkCell(r, n, false);
+      html += `<div style="width:${ZG}px;flex-shrink:0;"></div>`;
+      for (let n=9;n<=19;n++) html += mkCell(r, n, false);
+      // 오른쪽 빈 공간 (~2칸) 패딩
+      const Npad = stdW - 8*(C+G) - ZG - 11*(C+G);
+      if (Npad > 0) html += `<div style="width:${Npad}px;flex-shrink:0;"></div>`;
     } else {
-      function renderZone(range) {
-        if (!range) return;
-        for (let n = range[0]; n <= range[1]; n++) {
-          const hl = isTarget && n === parseInt(num);
-          html += `<div style="width:${C}px;height:${C}px;border-radius:2px;flex-shrink:0;background:${hl?'var(--accent)':'var(--bg3)'};border:1px solid ${hl?'var(--accent)':'var(--border)'};${hl?'box-shadow:0 0 4px var(--accent);':''}"></div>`;
-        }
-      }
-      renderZone(cfg.l); if (cfg.l && (cfg.m || cfg.r)) html += `<div style="width:${ZGAP}px;flex-shrink:0;"></div>`;
-      renderZone(cfg.m); if (cfg.m && cfg.r)             html += `<div style="width:${ZGAP}px;flex-shrink:0;"></div>`;
-      renderZone(cfg.r);
+      html += mkZone(r, cfg.l, MAX.l, true);
+      html += `<div style="width:${ZG}px;flex-shrink:0;"></div>`;
+      html += mkZone(r, cfg.m, MAX.m, false);
+      html += `<div style="width:${ZG}px;flex-shrink:0;"></div>`;
+      html += mkZone(r, cfg.r, MAX.r, true);
     }
     html += '</div>';
   });
@@ -2217,6 +2242,7 @@ function setCalFilterFromTab(role, actor) {
   updateRoleTabIndicators();
   updateCalFilterHint();
   renderCalendar();
+  saveCalFilter();
 }
 
 // 배역 탭 필터 표시 업데이트
@@ -2468,10 +2494,10 @@ function setPairActor(role, actor) {
   if (pairSelectedActors[role] === actor) delete pairSelectedActors[role];
   else pairSelectedActors[role] = actor;
   renderPairActorChips();
-  // 탭 has-filter 표시
   document.querySelectorAll('#pair-role-tabs .cal-role-tab').forEach(btn => {
     btn.classList.toggle('has-filter', !!pairSelectedActors[btn.dataset.role]);
   });
+  savePairFilter();
 }
 
 function queryPairStats() {
@@ -2521,7 +2547,7 @@ function queryPairStats() {
   const totalSeen  = list.reduce((s, c) => s + c.seenCount, 0);
 
   const SHORT = { magnus:'매그', abel:'아벨', fredrick:'프레', hagen:'하겐', jasper:'재스', claire:'클레' };
-  const headers = ROLES.map(r => `<th>${SHORT[r.key]||r.label}</th>`).join('') + '<th style="text-align:center;">회차</th><th>관람</th>';
+  const headers = ROLES.map(r => `<th>${SHORT[r.key]||r.label}</th>`).join('') + '<th style="text-align:center;">회차</th><th style="text-align:center;">관람</th>';
   const rows = list.map(c => {
     const isGrey = c.scheduleCount === 0;
     const style  = isGrey ? ' style="opacity:0.4;"' : '';
@@ -3278,11 +3304,45 @@ function deleteStampHistoryItemFromPanel(boardId, origIdx) {
 // ============================================================
 // INIT
 // ============================================================
+// ============================================================
+// 필터 상태 유지 (localStorage)
+// ============================================================
+function saveCalFilter() {
+  DB.set('calFilter', calFilter);
+  DB.set('calExpandedRoles', [...calExpandedRoles]);
+}
+function savePairFilter() {
+  DB.set('pairSelectedActors', pairSelectedActors);
+  DB.set('pairExpandedRoles', [...pairExpandedRoles]);
+}
+function restoreFilters() {
+  // 캘린더 필터
+  const savedCF = DB.get('calFilter', null);
+  if (savedCF) Object.keys(savedCF).forEach(k => { if (k in calFilter) calFilter[k] = savedCF[k]; });
+  const savedCE = DB.get('calExpandedRoles', []);
+  savedCE.forEach(role => calExpandedRoles.add(role));
+  updateRoleTabIndicators();
+  if (calExpandedRoles.size > 0) renderAllActorChips();
+  updateCalFilterHint();
+  // 페어 통계 필터
+  const savedPA = DB.get('pairSelectedActors', null);
+  if (savedPA) Object.assign(pairSelectedActors, savedPA);
+  const savedPE = DB.get('pairExpandedRoles', []);
+  savedPE.forEach(role => pairExpandedRoles.add(role));
+  document.querySelectorAll('#pair-role-tabs .cal-role-tab').forEach(btn => {
+    const role = btn.dataset.role;
+    btn.classList.toggle('has-filter', !!pairSelectedActors[role]);
+    if (pairExpandedRoles.has(role)) btn.classList.add('expanded');
+  });
+  if (pairExpandedRoles.size > 0) renderPairActorChips();
+}
+
 function init() {
   const s = getSettings();
   applyDark(s.darkMode);
   migrateData();
   initCal();
+  restoreFilters();
   renderHome();
   fetchSchedule(false);
   fetchEvents(false);
