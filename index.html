@@ -292,7 +292,10 @@
 <!-- ========== HOME ========== -->
 <div class="page active" id="page-home">
   <div class="page-header">
-    <div class="page-title">⚔️ 비더슈탄트</div>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <div class="page-title">⚔️ 비더슈탄트</div>
+      <a href="https://x.com/MYSTIC__CULTURE" target="_blank" style="font-size:11px;font-weight:700;color:var(--text3);text-decoration:none;letter-spacing:0;">𝕏</a>
+    </div>
     <button class="btn btn-primary btn-sm" onclick="openAddRecord()">+ 기록</button>
   </div>
   <div id="home-next-show"></div>
@@ -486,6 +489,11 @@
     <div id="event-fetch-status" style="font-size:12px;color:var(--text3);margin-top:6px;"></div>
   </div>
   <div class="card">
+    <div class="card-title">🏠 홈 예정 일정 배역 표시</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">선택한 배역만 예정 리스트에 표시 (D-day·첫 번째 일정은 항상 전체)</div>
+    <div id="home-role-setting" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;"></div>
+  </div>
+  <div class="card">
     <div class="card-title">💾 데이터 백업/복원</div>
     <div style="display:flex;gap:10px;">
       <button class="btn btn-outline btn-sm" style="flex:1;" onclick="openPanel('overlay-export')">JSON 내보내기</button>
@@ -496,6 +504,15 @@
   <div class="card">
     <div class="card-title">📱 홈스크린 추가 (PWA)</div>
     <p style="font-size:13px;color:var(--text2);">브라우저 메뉴 → "홈 화면에 추가"를 선택하면 앱처럼 설치할 수 있습니다.</p>
+  </div>
+  <div class="card">
+    <div class="card-title">📖 사용 가이드</div>
+    <a href="guide.html" style="display:block;padding:10px 14px;background:var(--bg3);border-radius:8px;text-decoration:none;color:var(--accent);font-size:13px;font-weight:600;text-align:center;">가이드 보기 →</a>
+  </div>
+  <div class="card">
+    <div class="card-title">💬 문의·피드백</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">오류 제보나 기능 요청은 아래 계정으로 멘션 또는 DM 주세요.</p>
+    <a href="https://x.com/zen__ym" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--bg3);border-radius:8px;text-decoration:none;color:var(--text1);font-size:13px;font-weight:600;">𝕏 @zen__ym</a>
   </div>
 </div>
 
@@ -1382,7 +1399,7 @@ function switchTab(name, btn) {
   if (name === 'calendar') renderCalendar();
   if (name === 'stats')    renderStats();
   if (name === 'coupon')   renderCoupon();
-  if (name === 'settings') {
+  if (name === 'settings') { renderHomeRoleSetting();
     const sa = localStorage.getItem('scheduleUpdatedAt');
     const te = document.getElementById('schedule-update-time');
     if (te) te.textContent = sa ? sa + ' (캐시)' : '없음';
@@ -2016,6 +2033,26 @@ function deleteCurrentRecord() {
 // ============================================================
 // SETTINGS
 // ============================================================
+// 홈 예정 일정 배역 표시 설정
+function renderHomeRoleSetting() {
+  const el = document.getElementById('home-role-setting');
+  if (!el) return;
+  const saved = DB.get('homeUpcomingRoles', []);
+  el.innerHTML = ROLES.map(r => `
+    <label style="display:flex;align-items:center;gap:6px;padding:6px 4px;cursor:pointer;font-size:13px;">
+      <input type="checkbox" ${saved.includes(r.key) ? 'checked' : ''}
+        onchange="toggleHomeRole('${r.key}',this.checked)"
+        style="width:16px;height:16px;accent-color:var(--accent);">
+      ${r.label}
+    </label>`).join('');
+}
+function toggleHomeRole(key, checked) {
+  let roles = DB.get('homeUpcomingRoles', []);
+  roles = checked ? [...new Set([...roles, key])] : roles.filter(k => k !== key);
+  DB.set('homeUpcomingRoles', roles);
+  renderHome();
+}
+
 function toggleDark() {
   const s = getSettings(); s.darkMode = !s.darkMode; saveSettings(s); applyDark(s.darkMode);
 }
@@ -2113,6 +2150,27 @@ function renderHome() {
   const records = getRecords();
   const today   = localDate();
   const dow     = ['일','월','화','수','목','금','토'];
+  // 마일스톤 달성 recordId 맵 (upcoming + 최근 관람 공통 사용)
+  const msRecordMap = {};
+  getStampBoards().forEach(board => {
+    const sorted = [...(board.history||[])].sort((a,b)=>a.date.localeCompare(b.date));
+    let cumul = 0;
+    sorted.forEach(h => {
+      const prev = cumul; cumul += (h.qty||1);
+      (board.milestones||[]).forEach(m => {
+        if (prev < m.at && cumul >= m.at && m.notified) {
+          const lbl = m.at===4 ? (m.rewardChoice==='coupon' ? '🏷' : '📸') : '📸';
+          // recordId 있으면 직접, 없으면 같은 날짜 record로 fallback
+          const rid = h.recordId ||
+            (records.find(r => r.date === h.date) || {}).id;
+          if (rid) {
+            if (!msRecordMap[rid]) msRecordMap[rid] = [];
+            if (!msRecordMap[rid].includes(lbl)) msRecordMap[rid].push(lbl);
+          }
+        }
+      });
+    });
+  });
 
   const stampsCollapsed = DB.get('homeStampsCollapsed', false);
   const sw = document.getElementById('home-stamps-wrap');
@@ -2150,16 +2208,22 @@ function renderHome() {
   const upCard = document.getElementById('home-upcoming-card');
   if (rest.length > 0) {
     upCard.style.display = '';
-    document.getElementById('home-upcoming').innerHTML = rest.map(r => {
+    document.getElementById('home-upcoming').innerHTML = rest.map((r, idx) => {
       const d2   = new Date(r.date + 'T00:00:00');
       const diff2 = Math.round((d2 - new Date(today + 'T00:00:00')) / 86400000);
       const dday2 = diff2 === 0 ? 'D-DAY' : `D-${diff2}`;
       const seat2 = r.seatZone ? (r.seatFloor ? r.seatFloor + ' ' : '') + r.seatZone + '열 ' + r.seatNumber + '번' : '';
-      const castStr = ROLES.map(role => r[role.key]).filter(Boolean).slice(0,3).join(' · ');
+      const homeRoles = DB.get('homeUpcomingRoles', []);
+      const rolesToShow = ROLES.filter(r => homeRoles.includes(r.key));
+      const castStr = rolesToShow.map(role => r[role.key]).filter(Boolean).join(' · ');
+      const upMsBadge = (msRecordMap[r.id]||[]).map(l =>
+        `<span style="font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0;">${l}</span>`
+      ).join('');
       return `<div class="upcoming-item" onclick="openDetail('${r.id}')">
         <div class="upcoming-dday" style="${r.isBooked===false?'color:var(--text3);':''}">${dday2}</div>
         <div class="upcoming-date">${r.date.slice(5)} (${dow[d2.getDay()]}) ${r.time}</div>
         ${seat2 ? `<div class="upcoming-seat">${seat2}</div>` : ''}
+        ${upMsBadge}
         <div class="upcoming-cast">${castStr}${r.isBooked===false?' <span style="font-size:10px;color:var(--text3);">미정</span>':''}</div>
       </div>`;
     }).join('');
@@ -2213,9 +2277,13 @@ function renderHome() {
     ? '<div style="text-align:center;color:var(--text3);padding:12px;font-size:13px;">기록이 없습니다</div>'
     : past.map(r => {
         const castStr = ROLES.map(role => r[role.key]).filter(Boolean).slice(0,2).join(' · ');
+        const msBadge = (msRecordMap[r.id]||[]).map(l =>
+          `<span style="font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0;">${l}</span>`
+        ).join('');
         return `<div class="record-mini" onclick="openDetail('${r.id}')">
           <div class="record-date-badge">${r.date.slice(5)} ${r.time}</div>
           <div class="record-casting">${castStr}</div>
+          ${msBadge}
           ${r.rating ? `<div style="color:var(--star);font-size:12px;white-space:nowrap;">${'★'.repeat(r.rating)}</div>` : ''}
         </div>`;
       }).join('');
