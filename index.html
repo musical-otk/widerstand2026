@@ -11,8 +11,8 @@
 <meta name="apple-mobile-web-app-title" content="비더슈탄트">
 <style>
   :root {
-    --bg:#F8F5F1;--bg1:#FEFCFA;--bg2:#FEFCFA;--bg3:#EEE8E0;
-    --border:#DDD4C8;--text:#2C2018;--text1:#2C2018;--text2:#6B5547;--text3:#A08878;
+    --bg:#F5F5F3;--bg1:#FFFFFF;--bg2:#FFFFFF;--bg3:#EBEBEB;
+    --border:#E0DADA;--text:#2C2018;--text1:#2C2018;--text2:#6B5547;--text3:#A08878;
     --accent:#9B7B5A;--accent2:#7A5E40;--accent-light:rgba(155,123,90,0.10);
     --danger:#cc4444;--success:#3a8a52;--star:#C8902A;
     --seat1:#D4B896;--seat2:#B8906A;--seat3:#9A7048;--seat4:#74512E;--seat5:#4A3220;
@@ -311,7 +311,13 @@
     </div>
     <div id="home-stamps-wrap"><div id="home-stamps" style="margin-top:8px;"></div></div>
   </div>
-  <a href="https://x.com/MYSTIC__CULTURE" target="_blank" style="display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:11px 16px;margin-bottom:12px;text-decoration:none;box-shadow:var(--shadow);"><span style="font-size:12px;font-weight:600;color:var(--text1);">𝕏 미스틱컬처 공식 계정</span><span style="font-size:12px;color:var(--text3);">바로가기 ›</span></a>
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;box-shadow:var(--shadow);overflow:hidden;">
+    <a href="https://x.com/MYSTIC__CULTURE" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;text-decoration:none;border-bottom:1px solid var(--border);"><span style="font-size:12px;font-weight:600;color:var(--text1);">𝕏 미스틱컬처 공식 계정</span><span style="font-size:12px;color:var(--text3);">바로가기 ›</span></a>
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;">
+      <input id="x-search-input" type="text" placeholder="공식 계정 검색..." style="flex:1;border:none;background:var(--bg3);border-radius:8px;padding:7px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;" onkeydown="if(event.key==='Enter')doXSearch()">
+      <button onclick="doXSearch()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;">🔍</button>
+    </div>
+  </div>
   <div class="card">
     <div class="card-title">📋 최근 관람</div>
     <div id="home-recent"></div>
@@ -2143,6 +2149,12 @@ function toggleHomeStamps() {
   wrap.style.display = collapsed ? '' : 'none';
   icon.textContent   = collapsed ? '▲' : '▼';
   DB.set('homeStampsCollapsed', !collapsed);
+}
+
+function doXSearch() {
+  const q = document.getElementById('x-search-input')?.value.trim();
+  if (!q) return;
+  window.open('https://x.com/search?q=from%3AMYSTIC__CULTURE+' + encodeURIComponent(q) + '&src=typed_query', '_blank');
 }
 
 function renderHome() {
