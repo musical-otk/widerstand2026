@@ -197,9 +197,9 @@
   .stamp-history-btn{width:100%;padding:6px;border-radius:7px;background:var(--bg3);border:1px solid var(--border);cursor:pointer;font-size:12px;color:var(--text2);font-weight:500;text-align:center;}
 
   /* COUPON */
-  .coupon-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+  .coupon-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
   .coupon-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;}
-  .coupon-card-label{font-size:12px;color:var(--text2);font-weight:600;margin-bottom:6px;line-height:1.3;}
+  .coupon-card-label{font-size:11px;color:var(--text2);font-weight:600;height:28px;display:flex;align-items:center;justify-content:center;line-height:1.3;margin-bottom:6px;}
   .coupon-card-sub-row{display:flex;margin-bottom:3px;}
   .coupon-card-sub{flex:1;font-size:10px;color:var(--text3);text-align:center;}
   .coupon-card-sub+.coupon-card-sub{border-left:1px solid var(--border);}
@@ -370,7 +370,11 @@
   <div class="card" style="margin-bottom:16px;">
     <div class="flex-between" style="margin-bottom:12px;">
       <div class="card-title" style="margin:0;">쿠폰 현황</div>
-      <button class="btn btn-primary btn-sm" onclick="openAddCouponManual()">+ 추가/차감</button>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-outline btn-sm" onclick="scanPastRecordsForCouponPacks()">🔍 기존 기록 적용</button>
+        <button class="btn btn-outline btn-sm" onclick="openCouponPackPanel()">🎁 쿠폰팩 추가</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddCouponManual()">+ 추가/차감</button>
+      </div>
     </div>
     <div id="coupon-list"></div>
     <div style="margin-top:8px;font-size:11px;color:var(--text3);text-align:center;">50% 할인권 사용 기간: 7/28(화) ~ 10/11(일) · 매진 시 사용 불가</div>
@@ -646,6 +650,7 @@
         <option value="조기예매">조기예매 (20%)</option>
         <option value="재관람 할인">재관람 할인 (30%)</option>
         <option value="50% 실물 할인권">50% 실물 할인권</option>
+        <option value="40% 실물 할인권">40% 실물 할인권</option>
         <option value="마티네 할인">마티네 할인 (30%)</option>
         <option value="학생 할인">학생 할인 (30%)</option>
         <option value="SNS 할인">SNS 할인 (10%)</option>
@@ -655,11 +660,15 @@
       </select>
       <div id="rec-discount-warn" style="display:none;margin-top:6px;font-size:12px;color:var(--danger);">⚠ 현재 보유한 쿠폰이 없습니다</div>
     </div>
-    <!-- 차액 지불 -->
+    <!-- 차액 지불 + 증빙패스 -->
     <div class="form-group" id="rec-paid-diff-group" style="display:none;padding:2px 0;">
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--text2);">
         <input type="checkbox" id="rec-paid-diff" style="width:16px;height:16px;accent-color:var(--accent);">
         차액 지불 (할인권 미지참 → 쿠폰 미차감)
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--text2);margin-top:8px;">
+        <input type="checkbox" id="rec-eungbing-used" style="width:16px;height:16px;accent-color:var(--accent);">
+        증빙패스권 사용 <span id="rec-eungbing-avail" style="font-size:11px;color:var(--text3);"></span>
       </label>
     </div>
     <!-- 금액 / 코멘트 -->
@@ -910,6 +919,9 @@
       <label class="form-label">종류</label>
       <select class="form-control" id="manual-coupon-key">
         <option value="discount50">50% 실물 할인권</option>
+        <option value="discount40">40% 실물 할인권</option>
+        <option value="eungBingPass">증빙패스권</option>
+        <option value="doubleStamp">더블적립권</option>
       </select>
     </div>
     <div class="form-group">
@@ -949,6 +961,38 @@
       <input type="text" class="form-control" id="manual-coupon-comment" placeholder="예: 4칸 달성 교환">
     </div>
     <button class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="saveManualCoupon()">저장</button>
+  </div>
+</div>
+
+<!-- ===== COUPON PACK PANEL ===== -->
+<div class="overlay" id="overlay-coupon-pack">
+  <div class="panel">
+    <div class="panel-handle"></div>
+    <div class="flex-between" style="margin-bottom:20px;">
+      <div class="panel-title">🎁 쿠폰팩 추가</div>
+      <button class="btn-icon" onclick="closePanel('overlay-coupon-pack')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">날짜</label>
+      <input type="date" class="form-control" id="pack-coupon-date">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+      <label id="pack-opt-curtain" style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1.5px solid var(--accent);border-radius:10px;cursor:pointer;">
+        <input type="radio" name="coupon-pack-sel" value="curtain" checked onchange="updatePackBorder()">
+        <div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px;">1주차 쿠폰팩</div>
+          <div style="font-size:11px;color:var(--text3);line-height:1.6;">40% 실물 할인권 ×2<br>증빙패스권 ×2</div>
+        </div>
+      </label>
+      <label id="pack-opt-selca" style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;">
+        <input type="radio" name="coupon-pack-sel" value="selca" onchange="updatePackBorder()">
+        <div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px;">3주차 쿠폰팩</div>
+          <div style="font-size:11px;color:var(--text3);line-height:1.6;">50% 실물 할인권 ×1<br>증빙패스권 ×1<br>더블적립권 ×1</div>
+        </div>
+      </label>
+    </div>
+    <button class="btn btn-primary" style="width:100%;" onclick="saveCouponPack()">추가</button>
   </div>
 </div>
 
@@ -1192,7 +1236,12 @@ function getSettings()    { return DB.get('settings', { darkMode: false }); }
 function saveSettings(s)  { DB.set('settings', s); }
 
 function getCoupons() {
-  return DB.get('coupons', { discount50: { count: 0, history: [] } });
+  return DB.get('coupons', {
+    discount50:   { count: 0, history: [] },
+    discount40:   { count: 0, history: [] },
+    eungBingPass: { count: 0, history: [] },
+    doubleStamp:  { count: 0, history: [] },
+  });
 }
 function saveCoupons(c) { DB.set('coupons', c); }
 
@@ -1273,7 +1322,8 @@ function rowMaxNum(floor, rowKey) {
 // DISCOUNT / COUPON CONFIG
 // ============================================================
 const DISCOUNT_COUPON_MAP = {
-  '50% 실물 할인권': 'discount50'
+  '50% 실물 할인권': 'discount50',
+  '40% 실물 할인권': 'discount40'
 };
 const DISCOUNT_LABEL = {
   '정가':            '정가',
@@ -1289,7 +1339,10 @@ const DISCOUNT_LABEL = {
   '타임세일':        '타임세일'
 };
 const COUPON_ITEMS = [
-  { key: 'discount50', label: '50% 실물 할인권', short: '50%' }
+  { key: 'discount50',   label: '50% 실물 할인권', short: '50%' },
+  { key: 'discount40',   label: '40% 실물 할인권', short: '40%' },
+  { key: 'eungBingPass', label: '증빙패스권',       short: '증빙' },
+  { key: 'doubleStamp',  label: '더블적립권',       short: '더블' },
 ];
 
 // ============================================================
@@ -1321,7 +1374,11 @@ function calcCouponCount(key, coupons, boards, records, asOf) {
     !r.paidDiff &&
     (!asOf || r.date <= asOf)
   ).length;
-  return Math.max(0, manual + stampBonus - used);
+  // ③-b 증빙패스 직접 사용 차감
+  const ebUsed = key === 'eungBingPass'
+    ? records.filter(r => r.eungBingPassUsed && (!asOf || r.date <= asOf)).length
+    : 0;
+  return Math.max(0, manual + stampBonus - used - ebUsed);
 }
 
 function getStampAchievedDate(board, at) {
@@ -1378,7 +1435,7 @@ const ROLES = [
 function migrateData() {
   const coupons = getCoupons();
   let changed = false;
-  ['discount50'].forEach(key => {
+  ['discount50','discount40','eungBingPass','doubleStamp'].forEach(key => {
     if (!coupons[key]?.history) return;
     const before = coupons[key].history.length;
     coupons[key].history = coupons[key].history.filter(h => {
@@ -1498,14 +1555,19 @@ function onDiscountTypeChange() {
   const warn = document.getElementById('rec-discount-warn');
   const paidGrp = document.getElementById('rec-paid-diff-group');
   const couponKey = DISCOUNT_COUPON_MAP[val];
-  // 차액지불 체크박스: 쿠폰 연동 할인권일 때만 표시
   if (paidGrp) paidGrp.style.display = couponKey ? '' : 'none';
-  if (!couponKey) { warn.style.display = 'none'; return; }
   const coupons = getCoupons();
   const boards  = getStampBoards();
   const records = getRecords();
-  const avail   = calcCouponCount(couponKey, coupons, boards, records);
-  warn.style.display = avail <= 0 ? '' : 'none';
+  if (!couponKey) { warn.style.display = 'none'; }
+  else {
+    const avail = calcCouponCount(couponKey, coupons, boards, records);
+    warn.style.display = avail <= 0 ? '' : 'none';
+  }
+  // 증빙패스 보유 수량 표시
+  const ebAvail = calcCouponCount('eungBingPass', coupons, boards, records);
+  const ebEl = document.getElementById('rec-eungbing-avail');
+  if (ebEl) ebEl.textContent = `(보유 ${ebAvail}개)`;
 }
 
 // ============================================================
@@ -1636,6 +1698,7 @@ function openAddRecord(date) {
   document.getElementById('rec-discount-warn').style.display = 'none';
   document.getElementById('rec-paid-diff-group').style.display = 'none';
   document.getElementById('rec-paid-diff').checked = false;
+  document.getElementById('rec-eungbing-used').checked = false;
   document.getElementById('rec-comment').value = '';
   document.getElementById('rec-memo').value = '';
   document.getElementById('rec-unconfirmed').checked = false;
@@ -1671,6 +1734,7 @@ function editRecord(id) {
   document.getElementById('rec-discount-type').value = r.discountType || '';
   onDiscountTypeChange();
   document.getElementById('rec-paid-diff').checked = !!r.paidDiff;
+  document.getElementById('rec-eungbing-used').checked = !!r.eungBingPassUsed;
   document.getElementById('rec-price').value   = r.price != null ? r.price : '';
   document.getElementById('rec-comment').value = r.comment || '';
   document.getElementById('rec-memo').value    = r.memo    || '';
@@ -1702,7 +1766,8 @@ function saveRecord() {
   const records     = getRecords();
   const editId      = document.getElementById('edit-record-id').value;
   const discountType = document.getElementById('rec-discount-type').value || null;
-  const paidDiff    = !!(document.getElementById('rec-paid-diff').checked);
+  const paidDiff        = !!(document.getElementById('rec-paid-diff').checked);
+  const eungBingPassUsed = !!(document.getElementById('rec-eungbing-used')?.checked);
   const newCouponKey = DISCOUNT_COUPON_MAP[discountType] || null;
   const prevRecord  = editId ? records.find(x => x.id === editId) : null;
   const prevDiscount = prevRecord?.discountType || null;
@@ -1738,6 +1803,7 @@ function saveRecord() {
     price:        priceVal !== '' ? parseInt(priceVal) : null,
     discountType,
     paidDiff,
+    eungBingPassUsed,
     stampBoardId: stampBoardId || null,
     stampQty:     stampBoardId ? stampQty : null,
     rating:       currentStar,
@@ -1847,6 +1913,7 @@ function saveRecord() {
   commitPhotos(record.id);
   closePanel('overlay-record');
   refreshCurrentPage();
+  if (!editId) autoAddCouponPack(date);
 }
 
 // 캐스팅 요약 문자열 (매그너스·아벨 위주)
@@ -2261,24 +2328,27 @@ function renderHome() {
 
   // ④ 쿠폰 현황
   const coupons = getCoupons();
-  const homeCouponCols = COUPON_ITEMS.length === 1 ? '1fr' : 'repeat(2,1fr)';
+  const homeMain = COUPON_ITEMS.filter(i => i.key !== 'doubleStamp');
+  const homeDS   = COUPON_ITEMS.find(i => i.key === 'doubleStamp');
+  const cDS  = homeDS ? calcCouponCount(homeDS.key, coupons, boards, records, today) : 0;
+  const fDS  = homeDS ? calcCouponCount(homeDS.key, coupons, boards, records) : 0;
+  const homeDsRow = homeDS ? `
+    <div style="margin-top:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;display:flex;align-items:center;gap:8px;">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);flex:1;">더블적립권</div>
+      <div style="font-size:10px;color:var(--text3);">현재 <span style="font-size:14px;font-weight:700;color:var(--success);">${cDS}</span></div>
+      <div style="width:1px;height:14px;background:var(--border);"></div>
+      <div style="font-size:10px;color:var(--text3);">최종 <span style="font-size:14px;font-weight:700;color:var(--text3);">${fDS}</span></div>
+    </div>` : '';
   document.getElementById('home-coupons').innerHTML =
-    `<div class="coupon-cards" style="grid-template-columns:${homeCouponCols};">` +
-    COUPON_ITEMS.map(item => {
+    `<div class="coupon-cards">${homeMain.map(item => {
       const cur   = calcCouponCount(item.key, coupons, boards, records, today);
       const final = calcCouponCount(item.key, coupons, boards, records);
       return `<div class="coupon-card">
         <div class="coupon-card-label">${item.label}</div>
-        <div class="coupon-card-sub-row">
-          <div class="coupon-card-sub">현재</div>
-          <div class="coupon-card-sub">최종</div>
-        </div>
-        <div class="coupon-card-num-row">
-          <div class="coupon-card-num">${cur}</div>
-          <div class="coupon-card-num final">${final}</div>
-        </div>
+        <div class="coupon-card-sub-row"><div class="coupon-card-sub">현재</div><div class="coupon-card-sub">최종</div></div>
+        <div class="coupon-card-num-row"><div class="coupon-card-num">${cur}</div><div class="coupon-card-num final">${final}</div></div>
       </div>`;
-    }).join('') + '</div>';
+    }).join('')}</div>${homeDsRow}`;
 
   // ⑤ 최근 관람
   const pastAll   = records.filter(r => r.date < today).sort((a,b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
@@ -2887,8 +2957,10 @@ function renderCouponList() {
     return base + future;
   }
 
-  const colCount = COUPON_ITEMS.length === 1 ? '1fr' : 'repeat(2,1fr)';
-  document.getElementById('coupon-list').innerHTML = `<div class="coupon-cards" style="grid-template-columns:${colCount};">` + COUPON_ITEMS.map(item => {
+  const mainItems = COUPON_ITEMS.filter(i => i.key !== 'doubleStamp');
+  const dsItem    = COUPON_ITEMS.find(i => i.key === 'doubleStamp');
+
+  function couponCardHtml(item) {
     const cur   = calcCouponCount(item.key, coupons, boards, records, today);
     const final = calcFinal(item.key);
     const earned = (coupons[item.key]?.history||[]).filter(h=>h.type==='획득'||h.type==='복원').reduce((s,h)=>s+(h.qty||1),0)
@@ -2897,17 +2969,30 @@ function renderCouponList() {
       + (coupons[item.key]?.history||[]).filter(h=>h.type==='사용').reduce((s,h)=>s+(h.qty||1),0);
     return `<div class="coupon-card">
       <div class="coupon-card-label">${item.label}</div>
-      <div class="coupon-card-sub-row">
-        <div class="coupon-card-sub">현재</div>
-        <div class="coupon-card-sub">최종</div>
-      </div>
-      <div class="coupon-card-num-row">
-        <div class="coupon-card-num">${cur}</div>
-        <div class="coupon-card-num final">${final}</div>
-      </div>
+      <div class="coupon-card-sub-row"><div class="coupon-card-sub">현재</div><div class="coupon-card-sub">최종</div></div>
+      <div class="coupon-card-num-row"><div class="coupon-card-num">${cur}</div><div class="coupon-card-num final">${final}</div></div>
       <div style="font-size:10px;color:var(--text3);text-align:center;margin-top:5px;">적립 ${earned} · 사용 ${used}</div>
     </div>`;
-  }).join('') + '</div>';
+  }
+
+  let dsRow = '';
+  if (dsItem) {
+    const cDS = calcCouponCount(dsItem.key, coupons, boards, records, today);
+    const fDS = calcFinal(dsItem.key);
+    const dsEarned = (coupons[dsItem.key]?.history||[]).filter(h=>h.type==='획득'||h.type==='복원').reduce((s,h)=>s+(h.qty||1),0);
+    const dsUsed   = (coupons[dsItem.key]?.history||[]).filter(h=>h.type==='사용').reduce((s,h)=>s+(h.qty||1),0);
+    dsRow = `<div style="margin-top:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;display:flex;align-items:center;gap:8px;">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);flex:1;">더블적립권</div>
+      <div style="font-size:10px;color:var(--text3);">현재 <span style="font-size:14px;font-weight:700;color:var(--success);">${cDS}</span></div>
+      <div style="width:1px;height:14px;background:var(--border);"></div>
+      <div style="font-size:10px;color:var(--text3);">최종 <span style="font-size:14px;font-weight:700;color:var(--text3);">${fDS}</span></div>
+      <div style="width:1px;height:14px;background:var(--border);"></div>
+      <div style="font-size:10px;color:var(--text3);">적립 ${dsEarned} · 사용 ${dsUsed}</div>
+    </div>`;
+  }
+
+  document.getElementById('coupon-list').innerHTML =
+    `<div class="coupon-cards">${mainItems.map(couponCardHtml).join('')}</div>${dsRow}`;
 
   renderCouponAllHistory();
 }
@@ -2962,20 +3047,21 @@ function renderCouponAllHistory() {
     const typeHtml = isGet ? '<span class="hist-type-get">획득</span>' : '<span class="hist-type-use">사용</span>';
     const qty  = h.qty||1;
     const delta = isGet ? `<span class="hist-delta-pos">+${qty}</span>` : `<span class="hist-delta-neg">-${qty}</span>`;
-    const d50  = h.key === 'discount50' ? delta : '';
+    const item = COUPON_ITEMS.find(i => i.key === h.key);
+    const shortLabel = item ? `<span style="font-size:10px;color:var(--text3);">${item.short}</span> ` : '';
     const badge = h.isMilestone ? '<span class="hist-milestone-badge">달성</span>' : '';
     const memo  = `${h.comment||''}${badge}`;
     const delBtn = h.rowType === 'manual' ? `<button class="hist-del-btn" onclick="deleteCouponHistoryRow('${h.key}',${h.originalIdx})">✕</button>` : '';
     return `<tr>
       <td style="text-align:left;white-space:nowrap;">${dateStr}</td>
       <td>${typeHtml}</td>
-      <td>${d50}</td>
+      <td>${shortLabel}${delta}</td>
       <td style="text-align:left;color:var(--text2);font-size:11px;">${memo}</td>
       <td>${delBtn}</td>
     </tr>`;
   }).join('');
   el.innerHTML = `<table class="coupon-hist-table">
-    <thead><tr><th style="text-align:left;">날짜</th><th>유형</th><th>50%</th><th style="text-align:left;">메모</th><th></th></tr></thead>
+    <thead><tr><th style="text-align:left;">날짜</th><th>유형</th><th>변동</th><th style="text-align:left;">메모</th><th></th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -3032,6 +3118,120 @@ function saveManualCoupon() {
   closePanel('overlay-coupon-manual');
   renderCouponList(); renderHome();
   showToast(`${COUPON_ITEMS.find(i=>i.key===key)?.label} ${type} ${qty}개 완료`);
+}
+
+// ============================================================
+// COUPON PACK
+// ============================================================
+const COUPON_PACKS = {
+  curtain: {
+    label: '1주차 쿠폰팩',
+    startDate: '2026-07-23', endDate: '2026-07-26',
+    items: [
+      { key: 'discount40',   qty: 2 },
+      { key: 'eungBingPass', qty: 2 },
+    ]
+  },
+  selca: {
+    label: '3주차 쿠폰팩',
+    startDate: '2026-08-04', endDate: '2026-08-09',
+    items: [
+      { key: 'discount50',  qty: 1 },
+      { key: 'eungBingPass', qty: 1 },
+      { key: 'doubleStamp', qty: 1 },
+    ]
+  }
+};
+
+function autoAddCouponPack(date) {
+  const pack = Object.values(COUPON_PACKS).find(p => date >= p.startDate && date <= p.endDate);
+  if (!pack) return;
+  if (!confirm(`📅 ${date} 관람은 "${pack.label}" 기간입니다.\n쿠폰팩을 자동으로 추가할까요?\n(${pack.items.map(i => `${COUPON_ITEMS.find(c=>c.key===i.key)?.label} ×${i.qty}`).join(', ')})`)) return;
+  const coupons = getCoupons();
+  pack.items.forEach(({ key, qty }) => {
+    if (!coupons[key]) coupons[key] = { count: 0, history: [] };
+    coupons[key].history.push({ type: '획득', date, comment: pack.label, qty });
+  });
+  saveCoupons(coupons);
+  renderCouponList(); renderHome();
+  showToast(`${pack.label} 추가 완료`);
+}
+
+function scanPastRecordsForCouponPacks() {
+  const records = getRecords();
+  const coupons = getCoupons();
+
+  // 날짜별로 이미 적용된 팩 확인 (comment + date 기준)
+  const alreadyApplied = new Set();
+  Object.values(COUPON_PACKS).forEach(pack => {
+    const firstKey = pack.items[0].key;
+    (coupons[firstKey]?.history || []).forEach(h => {
+      if (h.comment === pack.label) alreadyApplied.add(`${pack.label}__${h.date}`);
+    });
+  });
+
+  // 기간 내 기록 중 미적용된 것 수집
+  const toApply = [];
+  const seen = new Set();
+  records.forEach(r => {
+    const pack = Object.values(COUPON_PACKS).find(p => r.date >= p.startDate && r.date <= p.endDate);
+    if (!pack) return;
+    const key = `${pack.label}__${r.date}`;
+    if (alreadyApplied.has(key) || seen.has(key)) return;
+    seen.add(key);
+    toApply.push({ date: r.date, pack });
+  });
+
+  if (!toApply.length) {
+    showToast('적용할 기록이 없습니다 (이미 모두 적용됨)');
+    return;
+  }
+
+  const summary = toApply.map(({ date, pack }) =>
+    `• ${date} → ${pack.label}\n  (${pack.items.map(i => `${COUPON_ITEMS.find(c=>c.key===i.key)?.label} ×${i.qty}`).join(', ')})`
+  ).join('\n');
+
+  if (!confirm(`기존 기록 중 쿠폰팩 미적용 ${toApply.length}건을 발견했습니다:\n\n${summary}\n\n모두 추가할까요?`)) return;
+
+  toApply.forEach(({ date, pack }) => {
+    pack.items.forEach(({ key, qty }) => {
+      if (!coupons[key]) coupons[key] = { count: 0, history: [] };
+      coupons[key].history.push({ type: '획득', date, comment: pack.label, qty });
+    });
+  });
+  saveCoupons(coupons);
+  renderCouponList(); renderHome();
+  showToast(`${toApply.length}건 쿠폰팩 적용 완료`);
+}
+
+function openCouponPackPanel() {
+  document.getElementById('pack-coupon-date').value = localDate();
+  document.querySelector('input[name="coupon-pack-sel"][value="curtain"]').checked = true;
+  updatePackBorder();
+  openPanel('overlay-coupon-pack');
+}
+
+function updatePackBorder() {
+  const sel = document.querySelector('input[name="coupon-pack-sel"]:checked')?.value;
+  document.getElementById('pack-opt-curtain').style.borderColor = sel === 'curtain' ? 'var(--accent)' : 'var(--border)';
+  document.getElementById('pack-opt-selca').style.borderColor   = sel === 'selca'   ? 'var(--accent)' : 'var(--border)';
+}
+
+function saveCouponPack() {
+  const sel  = document.querySelector('input[name="coupon-pack-sel"]:checked')?.value;
+  const date = document.getElementById('pack-coupon-date').value;
+  if (!date) { showToast('날짜를 입력해주세요'); return; }
+  const pack = COUPON_PACKS[sel];
+  if (!pack) return;
+  const coupons = getCoupons();
+  pack.items.forEach(({ key, qty }) => {
+    if (!coupons[key]) coupons[key] = { count: 0, history: [] };
+    coupons[key].history.push({ type: '획득', date, comment: pack.label, qty });
+  });
+  saveCoupons(coupons);
+  closePanel('overlay-coupon-pack');
+  renderCouponList(); renderHome();
+  showToast(`${pack.label} 추가 완료`);
 }
 
 // ============================================================
