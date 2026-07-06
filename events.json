@@ -3,24 +3,24 @@
     "name": "첫공 무대인사",
     "startDate": "2026-07-23",
     "endDate": "2026-07-25",
-    "color": "#FFAAD4"
+    "color": "#FF6FA8"
   },
   {
     "name": "커튼콜 위크+쿠폰팩 증정",
     "startDate": "2026-07-23",
     "endDate": "2026-07-26",
-    "color": "#AACCFF"
+    "color": "#5CA8FF"
   },
   {
     "name": "스페셜 커튼콜 위크",
     "startDate": "2026-07-28",
     "endDate": "2026-08-02",
-    "color": "#C4AAFF"
+    "color": "#A87EFF"
   },
   {
     "name": "셀카 포토카드+쿠폰팩 증정",
     "startDate": "2026-08-04",
     "endDate": "2026-08-09",
-    "color": "#AAFFC4"
+    "color": "#4DDB94"
   }
 ]
