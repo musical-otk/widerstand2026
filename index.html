@@ -3177,8 +3177,11 @@ const COUPON_PACKS = {
 
 function useDoubleStamp() {
   const coupons = getCoupons();
-  const cur = calcCouponCount('doubleStamp', coupons, getStampBoards(), getRecords(), localDate());
-  if (cur <= 0) { showToast('보유한 더블적립권이 없습니다'); return; }
+  const boards  = getStampBoards();
+  const records = getRecords();
+  // 최종 수량(적립 예정 포함)으로 체크 — 미래 날짜 적립 예정도 사용 가능
+  const final = calcCouponCount('doubleStamp', coupons, boards, records, null);
+  if (final <= 0) { showToast('더블적립권이 없습니다 (적립 예정 포함)'); return; }
   const date = localDate();
   if (!confirm(`더블적립권 1개를 사용하시겠습니까?\n(${date} 기준)`)) return;
   if (!coupons.doubleStamp) coupons.doubleStamp = { count: 0, history: [] };
