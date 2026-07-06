@@ -2338,6 +2338,7 @@ function renderHome() {
       <div style="font-size:10px;color:var(--text3);">현재 <span style="font-size:14px;font-weight:700;color:var(--success);">${cDS}</span></div>
       <div style="width:1px;height:14px;background:var(--border);"></div>
       <div style="font-size:10px;color:var(--text3);">최종 <span style="font-size:14px;font-weight:700;color:var(--text3);">${fDS}</span></div>
+      <button onclick="useDoubleStamp()" style="margin-left:4px;padding:3px 8px;font-size:11px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">사용</button>
     </div>` : '';
   document.getElementById('home-coupons').innerHTML =
     `<div class="coupon-cards">${homeMain.map(item => {
@@ -2988,6 +2989,7 @@ function renderCouponList() {
       <div style="font-size:10px;color:var(--text3);">최종 <span style="font-size:14px;font-weight:700;color:var(--text3);">${fDS}</span></div>
       <div style="width:1px;height:14px;background:var(--border);"></div>
       <div style="font-size:10px;color:var(--text3);">적립 ${dsEarned} · 사용 ${dsUsed}</div>
+      <button onclick="useDoubleStamp()" style="margin-left:4px;padding:3px 8px;font-size:11px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">사용</button>
     </div>`;
   }
 
@@ -3142,6 +3144,19 @@ const COUPON_PACKS = {
     ]
   }
 };
+
+function useDoubleStamp() {
+  const coupons = getCoupons();
+  const cur = calcCouponCount('doubleStamp', coupons, getStampBoards(), getRecords(), localDate());
+  if (cur <= 0) { showToast('보유한 더블적립권이 없습니다'); return; }
+  const date = localDate();
+  if (!confirm(`더블적립권 1개를 사용하시겠습니까?\n(${date} 기준)`)) return;
+  if (!coupons.doubleStamp) coupons.doubleStamp = { count: 0, history: [] };
+  coupons.doubleStamp.history.push({ type: '사용', date, comment: '사용', qty: 1 });
+  saveCoupons(coupons);
+  renderCouponList(); renderHome();
+  showToast('더블적립권 1개 사용 완료');
+}
 
 function autoAddCouponPack(date) {
   const pack = Object.values(COUPON_PACKS).find(p => date >= p.startDate && date <= p.endDate);
