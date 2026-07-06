@@ -3161,25 +3161,33 @@ function scanPastRecordsForCouponPacks() {
   const records = getRecords();
   const coupons = getCoupons();
 
-  // 날짜별로 이미 적용된 팩 확인 (comment + date 기준)
-  const alreadyApplied = new Set();
+  // 날짜별 이미 적용된 팩 횟수 카운트 (기록 N개 = 팩 N개)
+  const appliedCount = {};
   Object.values(COUPON_PACKS).forEach(pack => {
     const firstKey = pack.items[0].key;
     (coupons[firstKey]?.history || []).forEach(h => {
-      if (h.comment === pack.label) alreadyApplied.add(`${pack.label}__${h.date}`);
+      if (h.comment === pack.label) {
+        const k = `${pack.label}__${h.date}`;
+        appliedCount[k] = (appliedCount[k] || 0) + 1;
+      }
     });
   });
 
-  // 기간 내 기록 중 미적용된 것 수집
-  const toApply = [];
-  const seen = new Set();
+  // 날짜별 기록 횟수 카운트
+  const dateCount = {};
   records.forEach(r => {
     const pack = Object.values(COUPON_PACKS).find(p => r.date >= p.startDate && r.date <= p.endDate);
     if (!pack) return;
-    const key = `${pack.label}__${r.date}`;
-    if (alreadyApplied.has(key) || seen.has(key)) return;
-    seen.add(key);
-    toApply.push({ date: r.date, pack });
+    const k = `${pack.label}__${r.date}`;
+    if (!dateCount[k]) dateCount[k] = { pack, date: r.date, count: 0 };
+    dateCount[k].count++;
+  });
+
+  // 기록 수 - 적용 수 = 추가로 넣어야 할 팩 수
+  const toApply = [];
+  Object.entries(dateCount).forEach(([k, { pack, date, count }]) => {
+    const already = appliedCount[k] || 0;
+    for (let i = 0; i < count - already; i++) toApply.push({ date, pack });
   });
 
   if (!toApply.length) {
@@ -3187,9 +3195,17 @@ function scanPastRecordsForCouponPacks() {
     return;
   }
 
-  const summary = toApply.map(({ date, pack }) =>
-    `• ${date} → ${pack.label}\n  (${pack.items.map(i => `${COUPON_ITEMS.find(c=>c.key===i.key)?.label} ×${i.qty}`).join(', ')})`
-  ).join('\n');
+  // 날짜별로 묶어서 요약 표시
+  const summaryMap = {};
+  toApply.forEach(({ date, pack }) => {
+    const k = `${pack.label}__${date}`;
+    if (!summaryMap[k]) summaryMap[k] = { date, pack, count: 0 };
+    summaryMap[k].count++;
+  });
+  const summary = Object.values(summaryMap).map(({ date, pack, count }) => {
+    const detail = pack.items.map(i => `${COUPON_ITEMS.find(c=>c.key===i.key)?.label} ×${i.qty}`).join(', ');
+    return `• ${date} → ${pack.label}${count > 1 ? ` (${count}회)` : ''}\n  (${detail})`;
+  }).join('\n');
 
   if (!confirm(`기존 기록 중 쿠폰팩 미적용 ${toApply.length}건을 발견했습니다:\n\n${summary}\n\n모두 추가할까요?`)) return;
 
