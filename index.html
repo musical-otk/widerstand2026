@@ -3177,6 +3177,19 @@ function autoAddCouponPack(date) {
 
 function scanPastRecordsForCouponPacks() {
   const records = getRecords();
+
+  // ── 0. 차액지불+증빙패스 동시 체크된 잘못된 기록 교정 ──
+  const conflicts = records.filter(r => r.paidDiff && r.eungBingPassUsed);
+  if (conflicts.length) {
+    const conflictSummary = conflicts.map(r => `• ${r.date} ${r.time} (${r.magnus}·${r.abel})`).join('\n');
+    if (confirm(`차액지불과 증빙패스가 동시에 체크된 기록 ${conflicts.length}건이 있습니다:\n\n${conflictSummary}\n\n증빙패스 우선으로 교정할까요?\n(차액지불 체크 해제, 쿠폰 차감 정상 적용)`)) {
+      conflicts.forEach(r => { r.paidDiff = false; });
+      saveRecords(records);
+      renderCouponList(); renderHome();
+      showToast(`${conflicts.length}건 교정 완료`);
+    }
+  }
+
   const coupons = getCoupons();
 
   // 날짜별 이미 적용된 팩 횟수 카운트 (기록 N개 = 팩 N개)
