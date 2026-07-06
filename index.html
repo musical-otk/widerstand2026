@@ -663,11 +663,13 @@
     <!-- 차액 지불 + 증빙패스 -->
     <div class="form-group" id="rec-paid-diff-group" style="display:none;padding:2px 0;">
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--text2);">
-        <input type="checkbox" id="rec-paid-diff" style="width:16px;height:16px;accent-color:var(--accent);">
+        <input type="checkbox" id="rec-paid-diff" style="width:16px;height:16px;accent-color:var(--accent);"
+          onchange="if(this.checked) document.getElementById('rec-eungbing-used').checked=false;">
         차액 지불 (할인권 미지참 → 쿠폰 미차감)
       </label>
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--text2);margin-top:8px;">
-        <input type="checkbox" id="rec-eungbing-used" style="width:16px;height:16px;accent-color:var(--accent);">
+        <input type="checkbox" id="rec-eungbing-used" style="width:16px;height:16px;accent-color:var(--accent);"
+          onchange="if(this.checked) document.getElementById('rec-paid-diff').checked=false;">
         증빙패스권 사용 <span id="rec-eungbing-avail" style="font-size:11px;color:var(--text3);"></span>
       </label>
     </div>
