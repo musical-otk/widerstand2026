@@ -700,6 +700,12 @@
             <input type="radio" name="rec-stamp-qty" value="3" onchange="updateRecQtyLabel()"> 3개
           </label>
         </div>
+        <div id="rec-double-stamp-row" style="display:none;margin-top:8px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--text2);">
+            <input type="checkbox" id="rec-double-stamp-used" style="width:16px;height:16px;accent-color:var(--accent);">
+            더블적립권 사용 <span id="rec-double-stamp-avail" style="font-size:11px;color:var(--text3);"></span>
+          </label>
+        </div>
       </div>
     </div>
     <!-- 한줄 코멘트 (도장판 아래로 이동) -->
@@ -1381,7 +1387,11 @@ function calcCouponCount(key, coupons, boards, records, asOf) {
   const ebUsed = key === 'eungBingPass'
     ? records.filter(r => r.eungBingPassUsed && (!asOf || r.date <= asOf)).length
     : 0;
-  return Math.max(0, manual + stampBonus - used - ebUsed);
+  // ③-c 더블적립권 사용 차감 (도장 수량 ≥2 + 체크한 기록)
+  const dsUsed = key === 'doubleStamp'
+    ? records.filter(r => r.doubleStampUsed && (!asOf || r.date <= asOf)).length
+    : 0;
+  return Math.max(0, manual + stampBonus - used - ebUsed - dsUsed);
 }
 
 function getStampAchievedDate(board, at) {
@@ -1630,6 +1640,19 @@ function updateRecQtyLabel() {
     el.style.color       = active ? 'var(--accent)' : '';
     el.style.fontWeight  = active ? '700' : '';
   });
+  // qty=2일 때만 더블적립권 행 표시
+  const dsRow = document.getElementById('rec-double-stamp-row');
+  const dsCb  = document.getElementById('rec-double-stamp-used');
+  const dsAvail = document.getElementById('rec-double-stamp-avail');
+  if (dsRow) {
+    const show = parseInt(qty) >= 2;
+    dsRow.style.display = show ? '' : 'none';
+    if (!show && dsCb) dsCb.checked = false;
+    if (show && dsAvail) {
+      const cur = calcCouponCount('doubleStamp', getCoupons(), getStampBoards(), getRecords(), localDate());
+      dsAvail.textContent = `(보유 ${cur}개)`;
+    }
+  }
   // 수량 변경 시 오버플로우 재체크
   if (document.getElementById('rec-stamp-board')?.value) checkRecFormOverflow();
 }
@@ -1749,6 +1772,8 @@ function editRecord(id) {
   const _rQty = (r.stampBoardId && r.stampQty) ? String(r.stampQty) : '1';
   const _rQEl = document.querySelector(`input[name="rec-stamp-qty"][value="${_rQty}"]`);
   if (_rQEl) { _rQEl.checked = true; updateRecQtyLabel(); }
+  const _dsCb = document.getElementById('rec-double-stamp-used');
+  if (_dsCb) _dsCb.checked = !!(r.doubleStampUsed);
   _stampFormInitializing = false;
   onRecStampBoardChange();
   setStar(r.rating || 0);
@@ -1769,8 +1794,9 @@ function saveRecord() {
   const records     = getRecords();
   const editId      = document.getElementById('edit-record-id').value;
   const discountType = document.getElementById('rec-discount-type').value || null;
-  const paidDiff        = !!(document.getElementById('rec-paid-diff').checked);
+  const paidDiff         = !!(document.getElementById('rec-paid-diff').checked);
   const eungBingPassUsed = !!(document.getElementById('rec-eungbing-used')?.checked);
+  const doubleStampUsed  = !!(document.getElementById('rec-double-stamp-used')?.checked);
   const newCouponKey = DISCOUNT_COUPON_MAP[discountType] || null;
   const prevRecord  = editId ? records.find(x => x.id === editId) : null;
   const prevDiscount = prevRecord?.discountType || null;
@@ -1807,6 +1833,7 @@ function saveRecord() {
     discountType,
     paidDiff,
     eungBingPassUsed,
+    doubleStampUsed,
     stampBoardId: stampBoardId || null,
     stampQty:     stampBoardId ? stampQty : null,
     rating:       currentStar,
