@@ -1802,8 +1802,8 @@ function saveRecord() {
   const prevDiscount = prevRecord?.discountType || null;
   const couponChanged = discountType !== prevDiscount;
 
-  // 쿠폰 잔여 체크
-  if (newCouponKey && couponChanged && !paidDiff) {
+  // 쿠폰 잔여 체크 (차액지불 또는 증빙패스 사용 시 스킵)
+  if (newCouponKey && couponChanged && !paidDiff && !eungBingPassUsed) {
     const avail = calcCouponCount(newCouponKey, getCoupons(), getStampBoards(), records);
     if (avail <= 0 && !(editId && (DISCOUNT_COUPON_MAP[prevDiscount] || null) === newCouponKey)) {
       showToast('현재 보유한 쿠폰이 없습니다'); return;
