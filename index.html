@@ -1368,10 +1368,11 @@ function calcCouponCount(key, coupons, boards, records, asOf) {
       return achieved && achieved <= asOf;
     }).reduce((s, m) => s + (m.qty || 1), 0);
   }, 0);
-  // ③ 관람 기록 할인권 사용 (paidDiff=true 건 스킵)
+  // ③ 관람 기록 할인권 사용 (paidDiff=true 또는 eungBingPassUsed=true 건 스킵)
   const used = records.filter(r =>
     (DISCOUNT_COUPON_MAP[r.discountType] || null) === key &&
     !r.paidDiff &&
+    !r.eungBingPassUsed &&
     (!asOf || r.date <= asOf)
   ).length;
   // ③-b 증빙패스 직접 사용 차감
