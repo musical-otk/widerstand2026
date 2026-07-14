@@ -2432,6 +2432,11 @@ function selectCalRole(role, btn) {
   if (calExpandedRoles.has(role)) {
     calExpandedRoles.delete(role);
     btn.classList.remove('expanded');
+    calFilter[role] = null;
+    updateRoleTabIndicators();
+    updateCalFilterHint();
+    renderCalendar();
+    saveCalFilter();
   } else {
     calExpandedRoles.add(role);
     btn.classList.add('expanded');
