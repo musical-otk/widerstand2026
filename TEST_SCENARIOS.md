@@ -200,6 +200,51 @@ Playwright 검증: 더블적립+2 보유 상태에서 `doubleStampUsed:true` 기
 
 ---
 
+## 신규 기능
+
+### ✨ 설정 > 전체 초기화 (2026-07-14)
+
+설정 페이지 맨 아래 "⚠️ 위험 구역" 카드에 `resetAllData()` 버튼 추가.
+`APP_PREFIX`(`wider_`)로 시작하는 모든 localStorage 키 + 스케줄/이벤트
+캐시 타임스탬프(`scheduleUpdatedAt`, `eventsUpdatedAt`) + 사진
+IndexedDB(`wider_photos`)를 삭제. `confirm()` 다이얼로그에서 확인을
+눌러야만 실행되고, 취소 시 아무 것도 지워지지 않음.
+
+Playwright 검증:
+- 다이얼로그 취소 → `wider_records` 등 기존 데이터 그대로 보존. PASS.
+- 다이얼로그 확인 → `wider_records`/`wider_coupons`/`wider_settings`
+  등 사용자 데이터 전부 삭제 확인. (재로드 후 `wider_schedule`/
+  `wider_events`는 앱이 매번 자동 재요청하는 공개 스케줄 데이터라
+  재생성되는 게 정상 동작) PASS.
+
+### ✨ 설정 > 할인권·쿠폰 사용 이력 초기화 (2026-07-14)
+
+같은 "위험 구역" 카드에 `resetCouponUsage()` 버튼 추가. `전체 초기화`와
+달리 관람 기록 자체(캐스팅·좌석·코멘트 등)와 쿠폰 획득 이력은 건드리지
+않고, 다음만 초기화:
+
+- `discount50`/`discount40`/`eungBingPass`/`doubleStamp` 쿠폰의
+  `history`에서 `type==='사용'` 항목만 제거 (`획득`/`복원`은 유지)
+- `DISCOUNT_COUPON_MAP[r.discountType]`가 있고 `paidDiff`가 아닌 기록 →
+  `discountType`을 `'정가'`로, `eungBingPassUsed`를 `false`로 변경
+- `doubleStampUsed`가 true인 기록 → `false`로 변경 (할인 유형과 무관하게
+  독립적으로 처리)
+- `paidDiff`(차액지불) 기록이나 쿠폰과 무관한 할인(학생할인 등)은 애초에
+  실제 쿠폰을 소모한 적이 없으므로 대상에서 제외 — 그대로 유지
+
+Playwright 검증 (5개 기록 조합):
+- 50% 실사용 기록 → `정가`로 변경. PASS.
+- 40%+증빙패스 병행 기록 → `정가` + `eungBingPassUsed:false`. PASS.
+- 50%+차액지불 기록 → 변경 없이 그대로 유지. PASS.
+- 더블적립만 사용한 기록 → `doubleStampUsed:false`만 변경, 할인 유형은
+  그대로. PASS.
+- 학생할인 기록(쿠폰 무관) → 그대로 유지. PASS.
+- 각 쿠폰 `history`에서 `사용` 항목만 제거되고 `획득` 항목은 보존.
+  PASS.
+- 다이얼로그 취소 시 전부 원본 그대로. PASS.
+
+---
+
 ## 아직 다루지 않은 영역 (후속 후보)
 
 - 쿠폰팩 자동 추가(`autoAddCouponPack`) confirm 수락/거부 플로우
