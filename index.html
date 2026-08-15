@@ -3001,7 +3001,10 @@ function renderCouponList() {
     const final = calcFinal(item.key);
     const earned = (coupons[item.key]?.history||[]).filter(h=>h.type==='획득'||h.type==='복원').reduce((s,h)=>s+(h.qty||1),0)
       + boards.reduce((s,b)=>s+(b.milestones||[]).filter(m=>m.couponKey===item.key&&m.notified&&!(m.choiceRequired&&m.rewardChoice==='polaroid')).reduce((t,m)=>t+(m.qty||1),0),0);
-    const used   = records.filter(r=>(DISCOUNT_COUPON_MAP[r.discountType]||null)===item.key&&!r.paidDiff).length
+    const recordUsed = item.key === 'eungBingPass'
+      ? records.filter(r=>r.eungBingPassUsed).length
+      : records.filter(r=>(DISCOUNT_COUPON_MAP[r.discountType]||null)===item.key&&!r.paidDiff&&!r.eungBingPassUsed).length;
+    const used   = recordUsed
       + (coupons[item.key]?.history||[]).filter(h=>h.type==='사용').reduce((s,h)=>s+(h.qty||1),0);
     return `<div class="coupon-card">
       <div class="coupon-card-label">${item.label}</div>
@@ -3016,7 +3019,8 @@ function renderCouponList() {
     const cDS = calcCouponCount(dsItem.key, coupons, boards, records, today);
     const fDS = calcFinal(dsItem.key);
     const dsEarned = (coupons[dsItem.key]?.history||[]).filter(h=>h.type==='획득'||h.type==='복원').reduce((s,h)=>s+(h.qty||1),0);
-    const dsUsed   = (coupons[dsItem.key]?.history||[]).filter(h=>h.type==='사용').reduce((s,h)=>s+(h.qty||1),0);
+    const dsUsed   = records.filter(r=>r.doubleStampUsed).length
+      + (coupons[dsItem.key]?.history||[]).filter(h=>h.type==='사용').reduce((s,h)=>s+(h.qty||1),0);
     dsRow = `<div style="margin-top:8px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;display:flex;align-items:center;gap:8px;">
       <div style="font-size:11px;font-weight:600;color:var(--text2);flex:1;">더블적립권</div>
       <div style="font-size:10px;color:var(--text3);">현재 <span style="font-size:14px;font-weight:700;color:var(--success);">${cDS}</span></div>
@@ -3064,11 +3068,20 @@ function renderCouponAllHistory() {
   });
   // 관람 기록 사용분
   records.forEach(r => {
+    const castStr = buildCastSummary(r);
+    if (r.doubleStampUsed) {
+      const dsI = COUPON_ITEMS.find(i => i.key === 'doubleStamp');
+      if (dsI) allRows.push({ date:r.date, type:'사용', key:'doubleStamp', short:dsI.short, comment:`${castStr} 관람`, qty:1, originalIdx:-1, rowType:'record' });
+    }
+    if (r.eungBingPassUsed) {
+      const item = COUPON_ITEMS.find(i => i.key === 'eungBingPass');
+      if (item) allRows.push({ date:r.date, type:'사용', key:'eungBingPass', short:item.short, comment:`${castStr} 관람`, qty:1, originalIdx:-1, rowType:'record' });
+      return;
+    }
     const key = DISCOUNT_COUPON_MAP[r.discountType]||null;
     if (!key || r.paidDiff) return;
     const item = COUPON_ITEMS.find(i => i.key === key);
     if (!item) return;
-    const castStr = buildCastSummary(r);
     allRows.push({ date:r.date, type:'사용', key, short:item.short, comment:`${castStr} 관람`, qty:1, originalIdx:-1, rowType:'record' });
   });
   allRows.sort((a,b) => a.date.localeCompare(b.date));
