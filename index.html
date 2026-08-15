@@ -55,6 +55,7 @@
   .btn-danger{background:var(--danger);color:#fff;}
   .btn-sm{padding:6px 14px;font-size:12px;}
   .btn-icon{width:32px;height:32px;border-radius:8px;background:var(--bg3);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .btn-icon:disabled{opacity:0.35;cursor:default;}
 
   /* FORM */
   .form-group{margin-bottom:14px;}
@@ -472,6 +473,14 @@
     <div class="setting-item">
       <div class="setting-label">다크모드</div>
       <button class="toggle" id="dark-toggle" onclick="toggleDark()"></button>
+    </div>
+    <div class="setting-item">
+      <div class="setting-label">글자 크기</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="btn-icon" id="font-scale-minus" style="font-size:12px;font-weight:700;" onclick="changeFontScale(-1)">A-</button>
+        <span id="font-scale-label" style="font-size:12px;color:var(--text3);min-width:34px;text-align:center;">100%</span>
+        <button class="btn-icon" id="font-scale-plus" style="font-size:12px;font-weight:700;" onclick="changeFontScale(1)">A+</button>
+      </div>
     </div>
   </div>
   <div class="card">
@@ -1247,7 +1256,7 @@ function getSchedule()    { return DB.get('schedule', []); }
 function saveSchedule(s)  { DB.set('schedule', s); }
 function getEvents()      { return DB.get('events', []); }
 function saveEvents(ev)   { DB.set('events', ev); }
-function getSettings()    { return DB.get('settings', { darkMode: false }); }
+function getSettings()    { return DB.get('settings', { darkMode: false, fontScale: 0 }); }
 function saveSettings(s)  { DB.set('settings', s); }
 
 function getCoupons() {
@@ -2171,6 +2180,25 @@ function applyDark(on) {
   if (on) btn.classList.add('on'); else btn.classList.remove('on');
 }
 
+const FONT_SCALE_MIN = -3;
+const FONT_SCALE_MAX = 3;
+function applyFontScale(level) {
+  document.documentElement.style.zoom = 1 + level * 0.1;
+  const label = document.getElementById('font-scale-label');
+  if (label) label.textContent = `${Math.round((1 + level * 0.1) * 100)}%`;
+  const minusBtn = document.getElementById('font-scale-minus');
+  const plusBtn  = document.getElementById('font-scale-plus');
+  if (minusBtn) minusBtn.disabled = level <= FONT_SCALE_MIN;
+  if (plusBtn)  plusBtn.disabled  = level >= FONT_SCALE_MAX;
+}
+function changeFontScale(delta) {
+  const s = getSettings();
+  const level = Math.max(FONT_SCALE_MIN, Math.min(FONT_SCALE_MAX, (s.fontScale || 0) + delta));
+  s.fontScale = level;
+  saveSettings(s);
+  applyFontScale(level);
+}
+
 function exportData() { openPanel('overlay-export'); } // → doExport()
 function importData(e) {
   const file = e.target.files[0]; if (!file) return;
@@ -2183,7 +2211,7 @@ function importData(e) {
       if (data.events)      saveEvents(data.events);
       if (data.stampBoards) saveStampBoards(data.stampBoards);
       if (data.coupons)     saveCoupons(data.coupons);
-      if (data.settings) { saveSettings(data.settings); applyDark(data.settings.darkMode); }
+      if (data.settings) { saveSettings(data.settings); applyDark(data.settings.darkMode); applyFontScale(data.settings.fontScale || 0); }
       if (data.photos && data.photos.length) dbSaveAllPhotos(data.photos);
       showToast('데이터를 성공적으로 불러왔습니다');
       renderHome(); renderCalendar(); renderCoupon(); renderStats();
@@ -3905,6 +3933,7 @@ function restoreFilters() {
 function init() {
   const s = getSettings();
   applyDark(s.darkMode);
+  applyFontScale(s.fontScale || 0);
   migrateData();
   initCal();
   restoreFilters();
