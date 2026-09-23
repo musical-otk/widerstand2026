@@ -1,4 +1,4 @@
-const CACHE_NAME = 'widerstand2026-v15';
+const CACHE_NAME = 'widerstand2026-v16';
 const BASE = '/widerstand2026';
 
 const PRECACHE_URLS = [
@@ -6,6 +6,7 @@ const PRECACHE_URLS = [
   BASE + '/index.html',
   BASE + '/manifest.json',
   BASE + '/icon-192.png',
+  BASE + '/apple-touch-icon.png',
   BASE + '/icon-512.png',
 ];
 
