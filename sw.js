@@ -1,4 +1,4 @@
-const CACHE_NAME = 'widerstand2026-v16';
+const CACHE_NAME = 'widerstand2026-v17';
 const BASE = '/widerstand2026';
 
 const PRECACHE_URLS = [
